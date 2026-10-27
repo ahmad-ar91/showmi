@@ -73,6 +73,16 @@ export function InputPanel({
     [screenshots, onScreenshotsChange],
   );
 
+  const loadSample = async () => {
+    try {
+      const res = await fetch("/samples/ritmova-home.png");
+      const blob = await res.blob();
+      await addFiles([new File([blob], "ritmova-home.png", { type: "image/png" })]);
+    } catch (err) {
+      setUploadError((err as Error).message);
+    }
+  };
+
   const canGenerate = screenshots.length > 0 && description.trim().length > 0 && selectedLocales.length > 0 && !loading;
 
   return (
@@ -125,6 +135,16 @@ export function InputPanel({
               Drop PNG/JPG here or <span className="text-violet-300 underline">browse</span>
             </p>
             <p className="text-[11px] text-muted">1 – 3 raw mobile screenshots, portrait preferred</p>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                void loadSample();
+              }}
+              className="mt-1 text-[11px] text-cyan-300 underline-offset-2 hover:underline"
+            >
+              or load the sample Ritmova screenshot
+            </button>
             <input
               ref={inputRef}
               type="file"

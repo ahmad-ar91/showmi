@@ -68,6 +68,10 @@ export interface GenerateAsoRequest {
   locales: LocaleCode[];
   /** Optional: segments the user picked per screenshot (same order). When present, SAM is skipped. */
   segments?: Segment[][];
+  /** Optional: missing keywords to inject (hand-off from the ASO analytics tab). */
+  keywords?: string[];
+  /** Optional: weaknesses to fix (hand-off from the ASO analytics tab). */
+  weaknesses?: string[];
 }
 
 export interface SegmentRequest {

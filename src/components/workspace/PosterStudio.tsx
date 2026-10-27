@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   AlignVerticalJustifyEnd,
   AlignVerticalJustifyStart,
@@ -30,6 +30,8 @@ interface Props {
   onLayoutChange: (l: LayoutStyle) => void;
   textPosition: TextPosition;
   onTextPositionChange: (p: TextPosition) => void;
+  /** Lets other tabs (Store Simulator) trigger the same Fastlane export. */
+  onRegisterExport?: (fn: (() => Promise<void>) | null) => void;
 }
 
 const LAYOUTS: { id: LayoutStyle; label: string; icon: React.ReactNode }[] = [
@@ -46,6 +48,7 @@ export function PosterStudio({
   onLayoutChange,
   textPosition,
   onTextPositionChange,
+  onRegisterExport,
 }: Props) {
   const nodes = useRef(new Map<string, HTMLDivElement>());
   const [exporting, setExporting] = useState<null | { done: number; total: number }>(null);
@@ -83,6 +86,15 @@ export function PosterStudio({
       setExporting(null);
     }
   };
+
+  const exportRef = useRef(handleExportAll);
+  useEffect(() => {
+    exportRef.current = handleExportAll;
+  });
+  useEffect(() => {
+    onRegisterExport?.(() => exportRef.current());
+    return () => onRegisterExport?.(null);
+  }, [onRegisterExport]);
 
   const handleDownloadOne = async (ref: PosterNodeRef) => {
     const key = `${ref.locale}-${ref.index}`;

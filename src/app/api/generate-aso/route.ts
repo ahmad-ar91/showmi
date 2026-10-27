@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { generateAsoPackage, isMockMode } from "@/lib/meta-ai";
+import { generateAsoPackage, providerStatus } from "@/lib/meta-ai";
 import { isLocaleCode } from "@/lib/locales";
 import type { GenerateAsoRequest, LocaleCode, Segment } from "@/lib/types";
 
@@ -55,12 +55,14 @@ function validate(body: unknown): { ok: true; req: GenerateAsoRequest } | { ok: 
       screenshots: screenshots as string[],
       locales: Array.from(new Set(locales as LocaleCode[])),
       segments,
+      keywords: Array.isArray(b.keywords) ? (b.keywords as unknown[]).filter((k): k is string => typeof k === "string").slice(0, 20) : undefined,
+      weaknesses: Array.isArray(b.weaknesses) ? (b.weaknesses as unknown[]).filter((k): k is string => typeof k === "string").slice(0, 10) : undefined,
     },
   };
 }
 
 export async function GET() {
-  return NextResponse.json({ ok: true, mode: isMockMode() ? "mock" : "live" });
+  return NextResponse.json({ ok: true, ...providerStatus() });
 }
 
 export async function POST(request: Request) {

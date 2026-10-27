@@ -39,3 +39,27 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# keep the template
+!.env.example
+
+# ---- AI-assistant / vibe-coding artifacts: never publish ----
+CLAUDE.md
+AGENTS.md
+.claude/
+.claude*
+.cursor/
+.cursorrules
+.windsurfrules
+.aider*
+.copilot/
+GEMINI.md
+*.claude.md
+
+# ---- secrets ----
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+secrets/

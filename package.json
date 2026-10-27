@@ -9,9 +9,14 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "clsx": "^2.1.1",
+    "html-to-image": "^1.11.13",
+    "jszip": "^3.10.2",
+    "lucide-react": "^1.62.0",
     "next": "16.4.3",
     "react": "19.3.0",
-    "react-dom": "19.3.0"
+    "react-dom": "19.3.0",
+    "tailwind-merge": "^3.7.0"
   },
   "devDependencies": {
     "@tailwindcss/turbopack": "^4",

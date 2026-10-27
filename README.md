@@ -4,11 +4,11 @@ Audit a Google Play listing against a competitor, fix its weaknesses with locali
 
 | Tab | What it does |
 | --- | --- |
-| **1 · ASO Intelligence & Audit** | Pulls live listings with `google-play-scraper`, scores 5 metrics on a `recharts` radar (ASO Health 0–100), tears down screenshots with SAM 3.1 (detections, clutter score, focal-point heatmap, Muse critique) and lists the competitor keyword gap. **Fix & Localize Weaknesses** hands everything to Tab 2. |
+| **1 · ASO Intelligence & Audit** | Pulls live listings with `google-play-scraper`, scores 5 metrics on a `recharts` radar (ASO Health 0–100), tears down screenshots with SAM 3.1 (detections, clutter score, focal-point heatmap, Muse critique) and lists the competitor keyword gap. **Fix and localize** hands everything to Tab 2. |
 | **2 · Localization Studio** | Interactive SAM segment picker → floating 3D badges on 9:16 posters, Muse Spark copy with missing keywords injected, Muse Image cultural backgrounds, Play Console limits enforced. |
 | **3 · Store Simulator & Export** | Google Play search mock-up: your listing before vs after, next to the competitor, plus one-click Fastlane ZIP. |
 
-Press **Load Demo Data (Real App vs Competitor)** on Tab 1 for a one-click judge demo (Ritmova vs Paceto, with a bundled snapshot fallback if scraping is blocked).
+Press **Load demo: Ritmova vs Paceto** on Tab 1 for a one-click judge demo (Ritmova vs Paceto, with a bundled snapshot fallback if scraping is blocked).
 
 Powered by Meta models by default:
 
@@ -56,7 +56,7 @@ AI_SEGMENT_PROVIDER=google
 | --- | --- | --- | --- | --- |
 | `meta` | Muse Spark / Wonder | Muse Image | SAM 3.1 (Responses API) | `META_API_KEY` |
 | `google` | Gemini 2.5 Flash | Gemini 2.5 Flash Image | Gemini bounding boxes | `GOOGLE_API_KEY` |
-| `deepseek` | deepseek-chat (text only) | — | — | `DEEPSEEK_API_KEY` |
+| `deepseek` | deepseek-flash (text + vision) or deepseek-v4-pro (text only) | — | — | `DEEPSEEK_API_KEY` |
 | `mock` | deterministic copy bank | SVG motifs | preset regions | none |
 
 A vendor without a key (or one that cannot serve a capability) silently resolves to `mock`. To add another vendor, implement the interfaces in `src/lib/ai/providers/<name>.ts` and register it in `src/lib/ai/registry.ts`.
@@ -66,7 +66,7 @@ A vendor without a key (or one that cannot serve a capability) silently resolves
 ```
 src/
   app/
-    page.tsx                     # 3-panel workspace (Input · Poster Studio · Metadata Inspector)
+    page.tsx                     # Three-step shell: audit, localize, preview and export
     api/generate-aso/route.ts    # POST: localization pipeline; GET: provider status
     api/segment/route.ts         # POST: candidate UI regions for the Segment Picker
     api/analyze-aso/route.ts     # POST: scrape Play listings + SAM/Muse audit

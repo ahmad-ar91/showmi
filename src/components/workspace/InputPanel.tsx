@@ -89,8 +89,8 @@ export function InputPanel({
     <Panel className="h-full">
       <PanelHeader
         icon={<Settings2 size={16} />}
-        title="Input & Configuration"
-        subtitle="Raw screenshots, app brief, target markets"
+        title="Brief"
+        subtitle="Screenshots, a short description and the markets you want"
         right={
           <Badge tone={mode === "live" ? "success" : mode === "mock" ? "warning" : "neutral"}>
             {mode === "live" ? "Live Meta API" : mode === "mock" ? "Simulation mode" : "Checking…"}
@@ -101,8 +101,8 @@ export function InputPanel({
         {/* Screenshots */}
         <div>
           <div className="mb-2 flex items-center justify-between">
-            <label className="text-xs font-semibold uppercase tracking-wide text-zinc-400">
-              1. App screenshots
+            <label className="text-xs font-semibold text-muted">
+              Screenshots
             </label>
             <span className="text-[11px] text-muted">
               {screenshots.length}/{MAX_SCREENSHOTS}
@@ -125,23 +125,23 @@ export function InputPanel({
               void addFiles(e.dataTransfer.files);
             }}
             className={cn(
-              "flex cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border border-dashed px-4 py-6 text-center transition-colors",
-              dragOver ? "border-violet-500 bg-violet-500/10" : "border-zinc-700 bg-zinc-900/60 hover:border-zinc-500",
+              "flex cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border border-dashed px-4 py-6 text-center transition-colors",
+              dragOver ? "border-accent bg-accent-soft" : "border-line bg-sunken hover:border-line-strong",
               screenshots.length >= MAX_SCREENSHOTS && "pointer-events-none opacity-50",
             )}
           >
-            <Upload size={20} className="text-violet-300" />
+            <Upload size={20} className="text-accent-ink" />
             <p className="text-sm">
-              Drop PNG/JPG here or <span className="text-violet-300 underline">browse</span>
+              Drop PNG or JPG here, or <span className="text-accent underline">browse</span>
             </p>
-            <p className="text-[11px] text-muted">1 – 3 raw mobile screenshots, portrait preferred</p>
+            <p className="text-[11px] text-muted">One to three portrait screenshots</p>
             <button
               type="button"
               onClick={(e) => {
                 e.stopPropagation();
                 void loadSample();
               }}
-              className="mt-1 text-[11px] text-cyan-300 underline-offset-2 hover:underline"
+              className="mt-1 text-[11px] text-accent underline-offset-2 hover:underline"
             >
               or load the sample Ritmova screenshot
             </button>
@@ -157,7 +157,7 @@ export function InputPanel({
               }}
             />
           </div>
-          {uploadError && <p className="mt-2 text-[11px] text-rose-300">{uploadError}</p>}
+          {uploadError && <p className="mt-2 text-[11px] text-bad">{uploadError}</p>}
 
           {screenshots.length > 0 && (
             <div className="mt-3 space-y-3">
@@ -177,12 +177,12 @@ export function InputPanel({
 
         {/* App brief */}
         <div className="space-y-3">
-          <label className="block text-xs font-semibold uppercase tracking-wide text-zinc-400">2. App brief</label>
+          <label className="block text-xs font-semibold text-muted">About the app</label>
           <input
             value={appName}
             onChange={(e) => onAppNameChange(e.target.value.slice(0, 20))}
             placeholder="App name (optional, e.g. Ritmova)"
-            className="h-10 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 text-sm placeholder:text-zinc-500 focus:border-violet-500 focus:outline-none"
+            className="h-10 w-full rounded-lg border border-line bg-sunken px-3 text-sm placeholder:text-muted focus:border-accent focus:outline-none"
           />
           <div>
             <textarea
@@ -190,7 +190,7 @@ export function InputPanel({
               onChange={(e) => onDescriptionChange(e.target.value.slice(0, MAX_DESCRIPTION))}
               rows={5}
               placeholder="Describe the app in one or two sentences: what it does, who it is for, the main benefit."
-              className="w-full resize-none rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm leading-relaxed placeholder:text-zinc-500 focus:border-violet-500 focus:outline-none"
+              className="w-full resize-none rounded-lg border border-line bg-sunken px-3 py-2 text-sm leading-relaxed placeholder:text-muted focus:border-accent focus:outline-none"
             />
             <div className="mt-1 text-right text-[11px] text-muted">
               {description.length}/{MAX_DESCRIPTION}
@@ -201,7 +201,7 @@ export function InputPanel({
         {/* Locales */}
         <div>
           <div className="mb-2 flex items-center justify-between">
-            <label className="text-xs font-semibold uppercase tracking-wide text-zinc-400">3. Target markets</label>
+            <label className="text-xs font-semibold text-muted">Markets</label>
             <span className="text-[11px] text-muted">{selectedLocales.length} selected</span>
           </div>
           <ul className="space-y-1.5">
@@ -213,15 +213,15 @@ export function InputPanel({
                     className={cn(
                       "flex cursor-pointer items-center gap-3 rounded-lg border px-3 py-2 transition-colors",
                       checked
-                        ? "border-violet-500/60 bg-violet-500/10"
-                        : "border-zinc-800 bg-zinc-900/60 hover:border-zinc-600",
+                        ? "border-accent bg-accent-soft"
+                        : "border-line bg-sunken hover:border-line-strong",
                     )}
                   >
                     <input
                       type="checkbox"
                       checked={checked}
                       onChange={() => onToggleLocale(l.code)}
-                      className="h-4 w-4 accent-violet-500"
+                      className="h-4 w-4 accent-accent"
                     />
                     <span className="text-lg leading-none">{l.flag}</span>
                     <span className="flex-1 text-sm">
@@ -241,13 +241,13 @@ export function InputPanel({
         <div className="space-y-2 pt-2">
           <Button variant="primary" size="lg" className="w-full" disabled={!canGenerate} onClick={onGenerate}>
             {loading ? <Loader2 size={18} className="animate-spin" /> : <Sparkles size={18} />}
-            {loading ? "Generating…" : "Generate Localized ASO"}
+            {loading ? "Generating…" : "Generate localized listing"}
           </Button>
           {screenshots.length > 0 && (
             <Button
               variant="ghost"
               size="sm"
-              className="w-full text-zinc-400"
+              className="w-full text-muted"
               onClick={() => onScreenshotsChange([])}
               disabled={loading}
             >
@@ -255,7 +255,7 @@ export function InputPanel({
             </Button>
           )}
           <p className="text-center text-[11px] text-muted">
-            Pipeline: SAM 3.1 segmentation → Muse Spark copy → Muse Image backgrounds
+            Runs SAM 3.1 for badges, Muse Spark for copy and Muse Image for backgrounds.
           </p>
         </div>
       </PanelBody>

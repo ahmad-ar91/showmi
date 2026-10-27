@@ -115,8 +115,8 @@ export function PosterStudio({
     <Panel className="h-full">
       <PanelHeader
         icon={<ImageIcon size={16} />}
-        title="Visual ASO Poster Studio"
-        subtitle="9:16 posters · exported at 1080×1920"
+        title="Posters"
+        subtitle="9:16, exported at 1080 by 1920"
         right={
           result && (
             <Badge tone="accent">
@@ -127,8 +127,8 @@ export function PosterStudio({
       />
 
       {/* Toolbar */}
-      <div className="flex flex-wrap items-center gap-2 border-b border-panel-border px-4 py-2.5">
-        <div className="flex items-center gap-1 rounded-lg border border-zinc-800 bg-zinc-900 p-1">
+      <div className="flex flex-wrap items-center gap-2 border-b border-line px-4 py-2.5">
+        <div className="flex items-center gap-1 rounded-lg border border-line bg-sunken p-1">
           {LAYOUTS.map((l) => (
             <button
               key={l.id}
@@ -136,7 +136,7 @@ export function PosterStudio({
               onClick={() => onLayoutChange(l.id)}
               className={cn(
                 "flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs transition-colors",
-                layout === l.id ? "bg-violet-600 text-white" : "text-zinc-400 hover:text-white",
+                layout === l.id ? "bg-accent text-panel" : "text-muted hover:text-panel",
               )}
             >
               {l.icon}
@@ -144,14 +144,14 @@ export function PosterStudio({
             </button>
           ))}
         </div>
-        <div className="flex items-center gap-1 rounded-lg border border-zinc-800 bg-zinc-900 p-1">
+        <div className="flex items-center gap-1 rounded-lg border border-line bg-sunken p-1">
           <button
             type="button"
             onClick={() => onTextPositionChange("top")}
             title="Text on top"
             className={cn(
               "flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs",
-              textPosition === "top" ? "bg-zinc-700 text-white" : "text-zinc-400 hover:text-white",
+              textPosition === "top" ? "bg-line text-panel" : "text-muted hover:text-panel",
             )}
           >
             <AlignVerticalJustifyStart size={14} /> Top
@@ -162,7 +162,7 @@ export function PosterStudio({
             title="Text on bottom"
             className={cn(
               "flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs",
-              textPosition === "bottom" ? "bg-zinc-700 text-white" : "text-zinc-400 hover:text-white",
+              textPosition === "bottom" ? "bg-line text-panel" : "text-muted hover:text-panel",
             )}
           >
             <AlignVerticalJustifyEnd size={14} /> Bottom
@@ -175,25 +175,25 @@ export function PosterStudio({
           </Button>
         </div>
       </div>
-      {exportError && <p className="border-b border-rose-900/40 bg-rose-950/30 px-4 py-2 text-xs text-rose-300">{exportError}</p>}
+      {exportError && <p className="border-b border-bad/30 bg-bad-soft px-4 py-2 text-xs text-bad">{exportError}</p>}
 
       <PanelBody className="grid-bg">
         {!result && !loading && (
           <EmptyState
-            title="No posters yet"
-            body="Upload screenshots, describe the app, pick target markets and hit Generate. Posters for every locale will appear here."
+            title="Nothing generated yet"
+            body="Add screenshots and a description, pick markets, then generate. One poster per screenshot and market appears here."
           />
         )}
         {loading && (
-          <div className="flex h-full flex-col items-center justify-center gap-3 text-center text-sm text-zinc-400">
-            <Loader2 size={28} className="animate-spin text-violet-400" />
+          <div className="flex h-full flex-col items-center justify-center gap-3 text-center text-sm text-muted">
+            <Loader2 size={28} className="animate-spin text-accent" />
             <p>Segmenting UI with SAM 3.1, writing copy with Muse Spark, painting backgrounds with Muse Image…</p>
           </div>
         )}
         {result && !loading && (
           <div className="space-y-8">
             {result.warnings.length > 0 && (
-              <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-200">
+              <div className="rounded-lg border border-warn/30 bg-warn-soft p-3 text-xs text-warn">
                 <p className="mb-1 font-semibold">Some model calls fell back to simulation:</p>
                 <ul className="list-disc space-y-0.5 pl-4">
                   {result.warnings.map((w, i) => (
@@ -218,7 +218,7 @@ export function PosterStudio({
                       const copy = r.posters[i] ?? r.posters[0] ?? { headline: "", subheadline: "" };
                       return (
                         <div key={key} className="flex flex-col items-center gap-2">
-                          <div className="rounded-[20px] p-[2px] ring-1 ring-white/10 shadow-2xl shadow-black/50">
+                          <div className="rounded-lg p-[2px] ring-1 ring-line">
                             <PosterCanvas
                               ref={register(key)}
                               locale={r.locale}
@@ -268,10 +268,10 @@ export function PosterStudio({
 function EmptyState({ title, body }: { title: string; body: string }) {
   return (
     <div className="flex h-full flex-col items-center justify-center text-center">
-      <div className="mb-4 flex h-24 w-14 items-center justify-center rounded-2xl border-2 border-dashed border-zinc-700">
-        <ImageIcon size={18} className="text-zinc-600" />
+      <div className="mb-4 flex h-24 w-14 items-center justify-center rounded-lg border-2 border-dashed border-line">
+        <ImageIcon size={18} className="text-faint" />
       </div>
-      <p className="text-sm font-medium text-zinc-300">{title}</p>
+      <p className="text-sm font-medium text-ink">{title}</p>
       <p className="mt-1 max-w-xs text-xs text-muted">{body}</p>
     </div>
   );

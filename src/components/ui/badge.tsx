@@ -7,16 +7,16 @@ export function Badge({
   ...props
 }: React.HTMLAttributes<HTMLSpanElement> & { tone?: "neutral" | "success" | "warning" | "danger" | "accent" }) {
   const tones = {
-    neutral: "bg-zinc-800 text-zinc-300 border-zinc-700",
-    success: "bg-emerald-500/10 text-emerald-300 border-emerald-500/30",
-    warning: "bg-amber-500/10 text-amber-300 border-amber-500/30",
-    danger: "bg-rose-500/10 text-rose-300 border-rose-500/30",
-    accent: "bg-violet-500/10 text-violet-300 border-violet-500/30",
+    neutral: "bg-sunken text-muted border-line",
+    success: "bg-ok-soft text-ok border-ok/30",
+    warning: "bg-warn-soft text-warn border-warn/30",
+    danger: "bg-bad-soft text-bad border-bad/30",
+    accent: "bg-accent-soft text-accent-ink border-accent/30",
   };
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-medium leading-4",
+        "inline-flex items-center gap-1 rounded-sm border px-1.5 py-0.5 text-[11px] font-medium leading-4",
         tones[tone],
         className,
       )}

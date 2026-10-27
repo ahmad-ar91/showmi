@@ -26,12 +26,12 @@ export function MetadataInspector({ results, onMetadataChange }: Props) {
     <Panel className="h-full">
       <PanelHeader
         icon={<FileText size={16} />}
-        title="Play Store Metadata Inspector"
-        subtitle="Google Play Console limits enforced"
+        title="Listing text"
+        subtitle="Title 30, short 80, full 4000 characters"
       />
 
       {results && results.length > 0 && (
-        <div className="flex gap-1 overflow-x-auto border-b border-panel-border px-3 py-2">
+        <div className="flex gap-1 overflow-x-auto border-b border-line px-3 py-2">
           {results.map((r) => {
             const loc = LOCALE_MAP[r.locale];
             const over =
@@ -45,12 +45,12 @@ export function MetadataInspector({ results, onMetadataChange }: Props) {
                 onClick={() => setSelected(r.locale)}
                 className={cn(
                   "flex shrink-0 items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs transition-colors",
-                  active === r.locale ? "bg-zinc-800 text-white" : "text-zinc-400 hover:text-white",
+                  active === r.locale ? "bg-sunken text-panel" : "text-muted hover:text-panel",
                 )}
               >
                 <span>{loc.flag}</span>
                 {loc.code}
-                {over && <span className="h-1.5 w-1.5 rounded-full bg-rose-400" />}
+                {over && <span className="h-1.5 w-1.5 rounded-full bg-bad" />}
               </button>
             );
           })}
@@ -60,8 +60,8 @@ export function MetadataInspector({ results, onMetadataChange }: Props) {
       <PanelBody>
         {!current && (
           <div className="flex h-full flex-col items-center justify-center text-center">
-            <FileText size={22} className="mb-3 text-zinc-600" />
-            <p className="text-sm font-medium text-zinc-300">Metadata will appear here</p>
+            <FileText size={22} className="mb-3 text-faint" />
+            <p className="font-display text-lg text-ink">Listing text appears here</p>
             <p className="mt-1 max-w-xs text-xs text-muted">
               Title, short and full description per locale, with live character counters and copy buttons.
             </p>
@@ -97,7 +97,7 @@ export function MetadataInspector({ results, onMetadataChange }: Props) {
 
             {current.metadata.keywords.length > 0 && (
               <div dir="ltr">
-                <div className="mb-2 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-zinc-400">
+                <div className="mb-2 flex items-center gap-1.5 text-xs font-semibold text-muted">
                   <Tags size={12} /> Keywords
                 </div>
                 <div className="flex flex-wrap gap-1.5" dir={LOCALE_MAP[current.locale].rtl ? "rtl" : "ltr"}>
@@ -109,8 +109,8 @@ export function MetadataInspector({ results, onMetadataChange }: Props) {
             )}
 
             {current.culturalNote && (
-              <p className="rounded-lg border border-zinc-800 bg-zinc-900/60 p-3 text-[11px] leading-relaxed text-zinc-400" dir="ltr">
-                <span className="font-semibold text-zinc-300">Cultural note · </span>
+              <p className="rounded-lg border border-line bg-sunken p-3 text-[11px] leading-relaxed text-muted" dir="ltr">
+                <span className="font-semibold text-ink">Cultural note: </span>
                 {current.culturalNote}
               </p>
             )}
@@ -143,12 +143,12 @@ function Field({
   return (
     <div>
       <div className="mb-1.5 flex items-center justify-between" dir="ltr">
-        <label className="text-xs font-semibold uppercase tracking-wide text-zinc-400">{label}</label>
+        <label className="text-xs font-semibold text-muted">{label}</label>
         <div className="flex items-center gap-2">
           <span
             className={cn(
               "font-mono text-[11px] tabular-nums",
-              over ? "text-rose-400" : near ? "text-amber-300" : "text-zinc-500",
+              over ? "text-bad" : near ? "text-warn" : "text-muted",
             )}
           >
             {count}/{limit}
@@ -162,13 +162,13 @@ function Field({
         dir={rtl ? "rtl" : "ltr"}
         onChange={(e) => onChange(e.target.value)}
         className={cn(
-          "w-full resize-y rounded-lg border bg-zinc-900 px-3 py-2 text-sm leading-relaxed focus:outline-none",
-          over ? "border-rose-500/70 focus:border-rose-400" : "border-zinc-700 focus:border-violet-500",
+          "w-full resize-y rounded-lg border bg-sunken px-3 py-2 text-sm leading-relaxed focus:outline-none",
+          over ? "border-bad focus:border-bad" : "border-line focus:border-accent",
           rows === 1 && "resize-none font-medium",
         )}
       />
       {over && (
-        <p className="mt-1 text-[11px] text-rose-300" dir="ltr">
+        <p className="mt-1 text-[11px] text-bad" dir="ltr">
           Exceeds Google Play limit by {count - limit} character{count - limit === 1 ? "" : "s"}.
         </p>
       )}
@@ -193,8 +193,8 @@ function CopyButton({ text }: { text: string }) {
       className={cn(
         "flex items-center gap-1 rounded-md border px-2 py-0.5 text-[11px] transition-colors",
         copied
-          ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-300"
-          : "border-zinc-700 text-zinc-300 hover:bg-zinc-800",
+          ? "border-ok/30 bg-ok-soft text-ok"
+          : "border-line text-ink hover:bg-sunken",
       )}
     >
       {copied ? <Check size={11} /> : <Copy size={11} />}

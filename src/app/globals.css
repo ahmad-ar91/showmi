@@ -1,57 +1,129 @@
 @import "tailwindcss";
 
+/*
+  LocaLaunch design tokens — "print shop for app stores".
+  Warm paper surfaces, ink text, one ultramarine accent for actions,
+  three semantic signal colours. No gradients, no glow.
+*/
 :root {
-  --background: #09090b;
-  --foreground: #fafafa;
-  --panel: #111114;
-  --panel-border: #26262b;
-  --muted: #a1a1aa;
-  --accent: #7c3aed;
-  --accent-2: #06b6d4;
+  --paper: #f1eee6;
+  --panel: #ffffff;
+  --sunken: #f7f5ef;
+  --line: #d8d3c6;
+  --line-strong: #b9b3a3;
+  --ink: #17191e;
+  --muted: #676a73;
+  --faint: #9b9ea7;
+  --accent: #1f3fbf;
+  --accent-ink: #15299a;
+  --accent-soft: #e4e9fb;
+  --ok: #1e7a4f;
+  --ok-soft: #e1f2e8;
+  --warn: #9a6a0f;
+  --warn-soft: #f8edd3;
+  --bad: #b3261e;
+  --bad-soft: #f9e1df;
+  --canvas: #e6e2d7;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
+  --color-background: var(--paper);
+  --color-foreground: var(--ink);
+  --color-paper: var(--paper);
   --color-panel: var(--panel);
-  --color-panel-border: var(--panel-border);
+  --color-sunken: var(--sunken);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-ink: var(--ink);
   --color-muted: var(--muted);
+  --color-faint: var(--faint);
   --color-accent: var(--accent);
-  --color-accent-2: var(--accent-2);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-accent-ink: var(--accent-ink);
+  --color-accent-soft: var(--accent-soft);
+  --color-ok: var(--ok);
+  --color-ok-soft: var(--ok-soft);
+  --color-warn: var(--warn);
+  --color-warn-soft: var(--warn-soft);
+  --color-bad: var(--bad);
+  --color-bad-soft: var(--bad-soft);
+  --color-canvas: var(--canvas);
+  --font-sans: var(--font-plex-sans);
+  --font-display: var(--font-fraunces);
+  --font-mono: var(--font-plex-mono);
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 10px;
 }
 
 html {
-  color-scheme: dark;
+  color-scheme: light;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: var(--font-geist-sans), system-ui, -apple-system, "Segoe UI", sans-serif;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font-plex-sans), "IBM Plex Sans", system-ui, sans-serif;
+  font-size: 14px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
 }
 
-/* Thin, dark scrollbars for the three panels */
+h1,
+h2,
+h3,
+.font-display {
+  font-family: var(--font-fraunces), "Fraunces", Georgia, serif;
+  font-variation-settings: "opsz" 48, "SOFT" 30;
+  letter-spacing: -0.01em;
+}
+
 * {
   scrollbar-width: thin;
-  scrollbar-color: #3f3f46 transparent;
+  scrollbar-color: var(--line-strong) transparent;
 }
 *::-webkit-scrollbar {
   width: 8px;
   height: 8px;
 }
 *::-webkit-scrollbar-thumb {
-  background: #3f3f46;
+  background: var(--line-strong);
   border-radius: 999px;
 }
 *::-webkit-scrollbar-track {
   background: transparent;
 }
 
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* Poster studio floor: a faint dot grid so dark posters sit on a stage */
 .grid-bg {
-  background-image:
-    linear-gradient(to right, rgba(255, 255, 255, 0.035) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(255, 255, 255, 0.035) 1px, transparent 1px);
-  background-size: 24px 24px;
+  background-color: var(--canvas);
+  background-image: radial-gradient(var(--line-strong) 0.8px, transparent 0.8px);
+  background-size: 18px 18px;
+}
+
+/* Tab content enters with one short fade; nothing else moves on its own */
+.tab-enter {
+  animation: tab-fade 180ms ease-out;
+}
+@keyframes tab-fade {
+  from {
+    opacity: 0;
+    transform: translateY(2px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .tab-enter {
+    animation: none;
+  }
+  * {
+    transition-duration: 0.01ms !important;
+  }
 }

@@ -1,12 +1,11 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { BarChart3, Globe2, Languages, Rocket, Store } from "lucide-react";
+import { Globe2, Rocket } from "lucide-react";
 import { AsoAnalytics } from "@/components/AsoAnalytics";
 import { LocalizationStudio, type StudioHandoff } from "@/components/LocalizationStudio";
 import { StoreSimulator } from "@/components/StoreSimulator";
 import { MAX_BADGES_PER_SHOT, type ShotSegmentation } from "@/components/workspace/SegmentPicker";
-import { Badge } from "@/components/ui/badge";
 import type { AsoAnalysis } from "@/lib/aso-analytics";
 import { loadImage, type UploadedScreenshot } from "@/lib/image";
 import type {
@@ -24,10 +23,10 @@ import { cn } from "@/lib/utils";
 
 type Tab = "analytics" | "studio" | "simulator";
 
-const TABS: { id: Tab; label: string; step: string; icon: React.ReactNode }[] = [
-  { id: "analytics", label: "ASO Intelligence & Audit", step: "1", icon: <BarChart3 size={14} /> },
-  { id: "studio", label: "Localization Studio", step: "2", icon: <Languages size={14} /> },
-  { id: "simulator", label: "Store Simulator & Export", step: "3", icon: <Store size={14} /> },
+const TABS: { id: Tab; label: string; hint: string; step: string }[] = [
+  { id: "analytics", label: "Audit the listing", hint: "Compare with a competitor", step: "1" },
+  { id: "studio", label: "Localize and fix", hint: "Copy, posters, badges", step: "2" },
+  { id: "simulator", label: "Preview and export", hint: "Store mock-up, Fastlane ZIP", step: "3" },
 ];
 
 interface ProviderStatus {
@@ -275,64 +274,82 @@ export default function WorkspacePage() {
 
   /* --------------------------------- UI --------------------------------- */
 
+  const stepDone: Record<Tab, boolean> = { analytics: !!analysis, studio: !!result, simulator: false };
+
   return (
-    <main className="flex h-screen flex-col overflow-hidden">
-      <header className="flex flex-wrap items-center justify-between gap-3 border-b border-panel-border bg-panel/80 px-5 py-2.5 backdrop-blur">
-        <div className="flex items-center gap-3">
-          <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-violet-600 to-cyan-500 shadow-lg shadow-violet-900/40">
-            <Rocket size={18} />
+    <main className="grid h-screen grid-cols-1 overflow-hidden lg:grid-cols-[232px_minmax(0,1fr)]">
+      {/* Left rail: brand, the three-step sequence, provider status */}
+      <aside className="flex flex-col border-b border-line bg-panel lg:border-b-0 lg:border-r">
+        <div className="flex items-center gap-3 px-5 pb-4 pt-5">
+          <span className="flex h-8 w-8 items-center justify-center rounded-md bg-ink text-paper">
+            <Rocket size={15} />
           </span>
           <div>
-            <h1 className="text-base font-semibold leading-tight">LocaLaunch AI</h1>
-            <p className="text-[11px] text-muted">End-to-End ASO Analytics & Localization Agent</p>
+            <h1 className="font-display text-[22px] leading-none">LocaLaunch</h1>
+            <p className="mt-1 text-xs text-muted">ASO audit, localization, export</p>
           </div>
         </div>
 
-        <nav className="flex items-center gap-1 rounded-xl border border-zinc-800 bg-zinc-900 p-1">
-          {TABS.map((t) => (
-            <button
-              key={t.id}
-              type="button"
-              onClick={() => setTab(t.id)}
-              className={cn(
-                "flex items-center gap-2 rounded-lg px-3 py-1.5 text-xs font-medium transition-colors",
-                tab === t.id ? "bg-violet-600 text-white shadow" : "text-zinc-400 hover:text-white",
-              )}
-            >
-              <span
+        <nav className="flex gap-1 overflow-x-auto px-3 lg:flex-col lg:gap-0.5" aria-label="Workflow steps">
+          {TABS.map((t) => {
+            const active = tab === t.id;
+            return (
+              <button
+                key={t.id}
+                type="button"
+                onClick={() => setTab(t.id)}
+                aria-current={active ? "step" : undefined}
                 className={cn(
-                  "flex h-4 w-4 items-center justify-center rounded-full text-[10px]",
-                  tab === t.id ? "bg-white/20" : "bg-zinc-800",
+                  "flex min-w-[180px] items-start gap-3 rounded-md px-3 py-2.5 text-left transition-colors lg:min-w-0",
+                  active ? "bg-sunken text-ink" : "text-muted hover:bg-sunken/60 hover:text-ink",
                 )}
               >
-                {t.step}
-              </span>
-              {t.icon}
-              {t.label}
-            </button>
-          ))}
+                <span
+                  className={cn(
+                    "mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border font-mono text-[11px]",
+                    stepDone[t.id] ? "border-ok bg-ok text-panel" : active ? "border-ink text-ink" : "border-line-strong text-muted",
+                  )}
+                >
+                  {stepDone[t.id] ? "✓" : t.step}
+                </span>
+                <span>
+                  <span className="block text-sm font-medium">{t.label}</span>
+                  <span className="block text-xs text-muted">{t.hint}</span>
+                </span>
+              </button>
+            );
+          })}
         </nav>
 
-        <div className="flex items-center gap-2">
-          {error && <Badge tone="danger">{error}</Badge>}
-          {result && (
-            <Badge tone="neutral">
-              <Globe2 size={11} /> {result.locales.length} locale{result.locales.length === 1 ? "" : "s"} generated
-            </Badge>
+        <div className="mt-auto flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-line px-5 py-3 text-xs lg:block lg:space-y-2 lg:py-4">
+          <p className="flex items-center gap-2">
+            <span className={cn("h-2 w-2 rounded-full", mode === "live" ? "bg-ok" : mode === "mock" ? "bg-warn" : "bg-faint")} />
+            <span className="text-ink">
+              {mode === "live" ? "Live models" : mode === "mock" ? "Simulated models" : "Checking models"}
+            </span>
+          </p>
+          {mode === "live" && (
+            <dl className="hidden grid-cols-[auto_1fr] gap-x-3 gap-y-0.5 font-mono text-[11px] text-muted lg:grid">
+              <dt>text</dt>
+              <dd className="truncate">{status.text?.model}</dd>
+              <dt>image</dt>
+              <dd className="truncate">{status.image?.model}</dd>
+              <dt>segment</dt>
+              <dd className="truncate">{status.segment?.model}</dd>
+            </dl>
           )}
-          <Badge tone={mode === "live" ? "success" : mode === "mock" ? "warning" : "neutral"} title={`text ${status.text?.model ?? "?"} · image ${status.image?.model ?? "?"} · segment ${status.segment?.model ?? "?"}`}>
-            {mode === "live"
-              ? `Live · ${status.text?.name ?? ""}/${status.image?.name ?? ""}/${status.segment?.name ?? ""}`
-              : mode === "mock"
-                ? "Simulation mode"
-                : "Checking…"}
-          </Badge>
-          <Badge tone="accent">Meta Hackathon</Badge>
+          {result && (
+            <p className="flex items-center gap-1.5 text-muted">
+              <Globe2 size={11} /> {result.locales.length} locale{result.locales.length === 1 ? "" : "s"} ready to export
+            </p>
+          )}
+          {error && <p className="text-bad">{error}</p>}
+          <p className="pt-1 text-faint">Built for the Meta hackathon</p>
         </div>
-      </header>
+      </aside>
 
-      <div className="min-h-0 flex-1 p-4">
-        <div className={cn("h-full min-h-0", tab !== "analytics" && "hidden")}>
+      <div className="min-h-0 overflow-hidden p-4">
+        <div className={cn("h-full min-h-0", tab === "analytics" ? "tab-enter" : "hidden")}>
           <AsoAnalytics
             analysis={analysis}
             loading={analyzing}
@@ -341,7 +358,7 @@ export default function WorkspacePage() {
             onFixAndLocalize={handleFixAndLocalize}
           />
         </div>
-        <div className={cn("h-full min-h-0", tab !== "studio" && "hidden")}>
+        <div className={cn("h-full min-h-0", tab === "studio" ? "tab-enter" : "hidden")}>
           <LocalizationStudio
             handoff={handoff}
             onClearHandoff={() => setHandoff(null)}
@@ -367,7 +384,7 @@ export default function WorkspacePage() {
             onRegisterExport={registerExport}
           />
         </div>
-        <div className={cn("h-full min-h-0", tab !== "simulator" && "hidden")}>
+        <div className={cn("h-full min-h-0", tab === "simulator" ? "tab-enter" : "hidden")}>
           <StoreSimulator
             analysis={analysis}
             result={result}

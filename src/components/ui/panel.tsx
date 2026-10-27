@@ -3,10 +3,7 @@ import { cn } from "@/lib/utils";
 
 export function Panel({ className, ...props }: React.HTMLAttributes<HTMLElement>) {
   return (
-    <section
-      className={cn("flex min-h-0 flex-col rounded-2xl border border-panel-border bg-panel", className)}
-      {...props}
-    />
+    <section className={cn("flex min-h-0 flex-col rounded-lg border border-line bg-panel", className)} {...props} />
   );
 }
 
@@ -16,18 +13,18 @@ export function PanelHeader({
   subtitle,
   right,
 }: {
-  icon: React.ReactNode;
+  icon?: React.ReactNode;
   title: string;
   subtitle?: string;
   right?: React.ReactNode;
 }) {
   return (
-    <header className="flex items-center justify-between gap-3 border-b border-panel-border px-4 py-3">
+    <header className="flex items-center justify-between gap-3 border-b border-line px-4 py-3">
       <div className="flex items-center gap-2.5">
-        <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-zinc-800 text-violet-300">{icon}</span>
+        {icon && <span className="text-muted">{icon}</span>}
         <div>
-          <h2 className="text-sm font-semibold leading-tight">{title}</h2>
-          {subtitle && <p className="text-[11px] text-muted">{subtitle}</p>}
+          <h2 className="font-display text-[17px] font-medium leading-tight text-ink">{title}</h2>
+          {subtitle && <p className="text-xs text-muted">{subtitle}</p>}
         </div>
       </div>
       {right}

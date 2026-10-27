@@ -51,24 +51,22 @@ export function LocalizationStudio(p: LocalizationStudioProps) {
   return (
     <div className="flex h-full min-h-0 flex-col gap-3">
       {p.handoff && (
-        <div className="flex flex-wrap items-center gap-2 rounded-xl border border-violet-500/40 bg-violet-500/10 px-4 py-2.5 text-xs">
-          <span className="flex items-center gap-1.5 font-semibold text-violet-200">
-            <ArrowDownToLine size={14} /> From audit of {p.handoff.sourceApp}
+        <div className="flex flex-wrap items-center gap-2 rounded-lg border border-accent bg-accent-soft px-4 py-2.5 text-xs">
+          <span className="flex items-center gap-1.5 font-semibold text-accent-ink">
+            <ArrowDownToLine size={14} /> From the audit of {p.handoff.sourceApp}
           </span>
-          <span className="text-zinc-400">·</span>
-          <span className="flex items-center gap-1 text-zinc-300">
-            <Languages size={12} /> Injecting keywords:
+          <span className="flex items-center gap-1 text-ink">
+            <Languages size={12} /> adds keywords
           </span>
           {p.handoff.keywords.slice(0, 8).map((k) => (
             <Badge key={k} tone="accent">
               {k}
             </Badge>
           ))}
-          <span className="text-zinc-400">·</span>
-          <span className="flex items-center gap-1 text-zinc-300">
-            <Wand2 size={12} /> Fixing {p.handoff.weaknesses.length} weakness{p.handoff.weaknesses.length === 1 ? "" : "es"}
+          <span className="flex items-center gap-1 text-ink">
+            <Wand2 size={12} /> and fixes {p.handoff.weaknesses.length} weakness{p.handoff.weaknesses.length === 1 ? "" : "es"}
           </span>
-          <button type="button" onClick={p.onClearHandoff} className="ml-auto text-[11px] text-zinc-400 hover:text-white">
+          <button type="button" onClick={p.onClearHandoff} className="ml-auto text-[11px] text-muted hover:text-panel">
             Clear hand-off
           </button>
         </div>

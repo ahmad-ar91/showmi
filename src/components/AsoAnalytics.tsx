@@ -3,21 +3,19 @@
 import { useState } from "react";
 import {
   AlertTriangle,
-  ArrowRight,
   BarChart3,
   CheckCircle2,
   Crosshair,
   Loader2,
   Search,
   Sparkles,
-  Star,
   Wand2,
   XCircle,
 } from "lucide-react";
 import { PolarAngleAxis, PolarGrid, PolarRadiusAxis, Radar, RadarChart, ResponsiveContainer } from "recharts";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Panel, PanelBody, PanelHeader } from "@/components/ui/panel";
+import { Panel, PanelHeader } from "@/components/ui/panel";
 import type { AsoAnalysis, VisualAudit } from "@/lib/aso-analytics";
 import { PLAY_LIMITS } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -38,6 +36,15 @@ const METRIC_LABELS: { key: keyof AsoAnalysis["metrics"]; label: string; hint: s
   { key: "metadataCompliance", label: "Metadata Compliance", hint: "Play limits" },
 ];
 
+const COMPLIANCE_LABEL = { title: "Title", shortDescription: "Short description", fullDescription: "Full description" } as const;
+
+function verdictLine(score: number): string {
+  if (score >= 85) return "Strong listing. Localize to grow further.";
+  if (score >= 70) return "Solid, with clear gaps a competitor is exploiting.";
+  if (score >= 50) return "Average. Keywords and visuals both need work.";
+  return "Weak listing. Start with the fixes below.";
+}
+
 function scoreTone(n: number): "success" | "warning" | "danger" {
   return n >= 75 ? "success" : n >= 50 ? "warning" : "danger";
 }
@@ -52,32 +59,32 @@ export function AsoAnalytics({ analysis, loading, error, onAnalyze, onFixAndLoca
       <Panel>
         <PanelHeader
           icon={<Search size={16} />}
-          title="ASO Intelligence & Competitor Audit"
-          subtitle="Pull live Google Play listings, then audit with SAM 3.1 + Muse Spark"
+          title="Audit your listing against a competitor"
+          subtitle="Pulls both Google Play listings, then scores them with SAM 3.1 and Muse Spark"
           right={
             <Button variant="primary" size="sm" disabled={loading} onClick={() => onAnalyze({ appId, competitorAppId: competitorId, demo: true })}>
               {loading ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
-              Load Demo Data (Real App vs Competitor)
+              Load demo: Ritmova vs Paceto
             </Button>
           }
         />
         <div className="grid gap-3 p-4 md:grid-cols-[1fr_1fr_auto]">
           <label className="block">
-            <span className="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-zinc-400">Your app · Play Store ID or URL</span>
+            <span className="mb-1 block text-[11px] font-semibold text-muted">Your app (Play Store ID or URL)</span>
             <input
               value={appId}
               onChange={(e) => setAppId(e.target.value)}
               placeholder="com.example.ritmova or https://play.google.com/store/apps/details?id=…"
-              className="h-10 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 text-sm placeholder:text-zinc-500 focus:border-violet-500 focus:outline-none"
+              className="h-10 w-full rounded-lg border border-line bg-sunken px-3 text-sm placeholder:text-muted focus:border-accent focus:outline-none"
             />
           </label>
           <label className="block">
-            <span className="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-zinc-400">Competitor app ID</span>
+            <span className="mb-1 block text-[11px] font-semibold text-muted">Competitor (Play Store ID or URL)</span>
             <input
               value={competitorId}
               onChange={(e) => setCompetitorId(e.target.value)}
               placeholder="com.example.paceto"
-              className="h-10 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 text-sm placeholder:text-zinc-500 focus:border-violet-500 focus:outline-none"
+              className="h-10 w-full rounded-lg border border-line bg-sunken px-3 text-sm placeholder:text-muted focus:border-accent focus:outline-none"
             />
           </label>
           <div className="flex items-end">
@@ -92,26 +99,26 @@ export function AsoAnalytics({ analysis, loading, error, onAnalyze, onFixAndLoca
             </Button>
           </div>
         </div>
-        {error && <p className="border-t border-rose-900/40 bg-rose-950/30 px-4 py-2 text-xs text-rose-300">{error}</p>}
+        {error && <p className="border-t border-bad/30 bg-bad-soft px-4 py-2 text-xs text-bad">{error}</p>}
       </Panel>
 
       {/* Dashboard */}
       {!analysis && !loading && (
         <Panel className="flex-1">
           <div className="flex h-full flex-col items-center justify-center p-10 text-center">
-            <BarChart3 size={26} className="mb-3 text-zinc-600" />
-            <p className="text-sm font-medium text-zinc-300">No audit yet</p>
+            <BarChart3 size={26} className="mb-3 text-faint" />
+            <p className="font-display text-lg text-ink">Start with an audit</p>
             <p className="mt-1 max-w-md text-xs text-muted">
-              Enter your Play Store app and a competitor, or load the demo (Ritmova vs Paceto) to see the ASO Health
-              Score, SAM 3.1 screenshot teardown and the keyword gap table.
+              Enter your Play Store app and a competitor, or load the demo, to get an ASO health score, a screenshot
+              teardown and the keyword gap.
             </p>
           </div>
         </Panel>
       )}
       {loading && (
         <Panel className="flex-1">
-          <div className="flex h-full flex-col items-center justify-center gap-3 p-10 text-center text-sm text-zinc-400">
-            <Loader2 size={28} className="animate-spin text-violet-400" />
+          <div className="flex h-full flex-col items-center justify-center gap-3 p-10 text-center text-sm text-muted">
+            <Loader2 size={28} className="animate-spin text-accent" />
             <p>Scraping Google Play, segmenting screenshots with SAM 3.1 and scoring with Muse Spark…</p>
           </div>
         </Panel>
@@ -119,7 +126,7 @@ export function AsoAnalytics({ analysis, loading, error, onAnalyze, onFixAndLoca
       {analysis && !loading && (
         <div className="min-h-0 flex-1 space-y-4 overflow-y-auto pr-1">
           {analysis.warnings.length > 0 && (
-            <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-200">
+            <div className="rounded-lg border border-warn/30 bg-warn-soft p-3 text-xs text-warn">
               <ul className="list-disc space-y-0.5 pl-4">
                 {analysis.warnings.map((w, i) => (
                   <li key={i}>{w}</li>
@@ -128,85 +135,95 @@ export function AsoAnalytics({ analysis, loading, error, onAnalyze, onFixAndLoca
             </div>
           )}
 
-          <div className="grid gap-4 lg:grid-cols-[320px_1fr_1fr]">
-            {/* Health score */}
-            <Panel>
-              <PanelHeader icon={<Star size={16} />} title="Overall ASO Health" subtitle={`${analysis.app.title}`} />
-              <div className="flex flex-col items-center gap-3 p-5">
-                <ScoreRing score={analysis.healthScore} />
-                <div className="flex items-center gap-2 text-xs text-muted">
-                  <AppChip listing={analysis.app} />
-                  <span>vs</span>
-                  <AppChip listing={analysis.competitor} />
+          {/* Verdict: the listing as the hero, its score, the competitor, the five metrics */}
+          <Panel>
+            <div className="grid gap-0 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)]">
+              <div className="flex flex-col gap-5 p-5 lg:border-r lg:border-line">
+                <div className="flex items-start gap-4">
+                  <ScoreRing score={analysis.healthScore} />
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs text-muted">ASO health, out of 100</p>
+                    <h3 className="font-display text-2xl leading-tight">{verdictLine(analysis.healthScore)}</h3>
+                    <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-muted">
+                      <AppChip listing={analysis.app} />
+                      <span>against</span>
+                      <AppChip listing={analysis.competitor} />
+                    </div>
+                  </div>
                 </div>
-                <ul className="w-full space-y-1.5 text-xs">
+                <dl className="grid grid-cols-3 gap-2 text-xs">
                   {analysis.compliance.map((c) => (
-                    <li key={c.field} className="flex items-center justify-between rounded-md bg-zinc-900/70 px-2.5 py-1.5">
-                      <span className="capitalize text-zinc-300">{c.field.replace(/([A-Z])/g, " $1")}</span>
-                      <span className={cn("flex items-center gap-1 font-mono", c.ok ? "text-emerald-300" : "text-rose-300")}>
-                        {c.ok ? <CheckCircle2 size={12} /> : <XCircle size={12} />}
-                        {c.length}/{c.limit}
+                    <div key={c.field} className="rounded-md border border-line px-3 py-2">
+                      <dt className="text-muted">{COMPLIANCE_LABEL[c.field]}</dt>
+                      <dd className={cn("mt-0.5 flex items-center gap-1 font-mono text-sm", c.ok ? "text-ok" : "text-bad")}>
+                        {c.ok ? <CheckCircle2 size={13} /> : <XCircle size={13} />}
+                        {c.length}
+                        <span className="text-faint">/{c.limit}</span>
+                      </dd>
+                    </div>
+                  ))}
+                </dl>
+              </div>
+              <div className="flex flex-col">
+                <div className="h-[230px] px-2 pt-2">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <RadarChart
+                      data={METRIC_LABELS.map((m) => ({ metric: m.label, score: analysis.metrics[m.key] }))}
+                      outerRadius="70%"
+                    >
+                      <PolarGrid stroke="var(--line)" />
+                      <PolarAngleAxis dataKey="metric" tick={{ fill: "var(--muted)", fontSize: 11 }} />
+                      <PolarRadiusAxis angle={90} domain={[0, 100]} tick={false} axisLine={false} />
+                      <Radar dataKey="score" stroke="var(--accent)" fill="var(--accent)" fillOpacity={0.18} strokeWidth={1.5} />
+                    </RadarChart>
+                  </ResponsiveContainer>
+                </div>
+                <ul className="grid grid-cols-1 gap-x-4 border-t border-line px-4 py-3 text-xs sm:grid-cols-2">
+                  {METRIC_LABELS.map((m) => (
+                    <li key={m.key} className="flex items-center justify-between border-b border-line/70 py-1.5">
+                      <span className="text-ink">
+                        {m.label} <span className="text-faint">({m.hint})</span>
+                      </span>
+                      <span
+                        className={cn(
+                          "font-mono",
+                          analysis.metrics[m.key] >= 75 ? "text-ok" : analysis.metrics[m.key] >= 50 ? "text-warn" : "text-bad",
+                        )}
+                      >
+                        {analysis.metrics[m.key]}
                       </span>
                     </li>
                   ))}
                 </ul>
               </div>
-            </Panel>
+            </div>
+          </Panel>
 
-            {/* Radar */}
-            <Panel>
-              <PanelHeader icon={<Crosshair size={16} />} title="5-Metric Radar" subtitle="0–100 per dimension" />
-              <div className="h-[280px] p-2">
-                <ResponsiveContainer width="100%" height="100%">
-                  <RadarChart
-                    data={METRIC_LABELS.map((m) => ({ metric: m.label, score: analysis.metrics[m.key] }))}
-                    outerRadius="72%"
-                  >
-                    <PolarGrid stroke="#3f3f46" />
-                    <PolarAngleAxis dataKey="metric" tick={{ fill: "#a1a1aa", fontSize: 10 }} />
-                    <PolarRadiusAxis angle={90} domain={[0, 100]} tick={false} axisLine={false} />
-                    <Radar dataKey="score" stroke="#a78bfa" fill="#7c3aed" fillOpacity={0.45} />
-                  </RadarChart>
-                </ResponsiveContainer>
-              </div>
-              <ul className="grid grid-cols-1 gap-1 border-t border-panel-border p-3 text-xs sm:grid-cols-2">
-                {METRIC_LABELS.map((m) => (
-                  <li key={m.key} className="flex items-center justify-between rounded-md bg-zinc-900/70 px-2.5 py-1.5">
-                    <span className="text-zinc-300">
-                      {m.label} <span className="text-[10px] text-muted">· {m.hint}</span>
-                    </span>
-                    <Badge tone={scoreTone(analysis.metrics[m.key])}>{analysis.metrics[m.key]}</Badge>
-                  </li>
-                ))}
-              </ul>
-            </Panel>
-
-            {/* Strengths / weaknesses */}
-            <Panel>
-              <PanelHeader
-                icon={<AlertTriangle size={16} />}
-                title="Findings"
-                subtitle="Muse Spark verdict"
-                right={
-                  <Button variant="primary" size="sm" onClick={onFixAndLocalize}>
-                    <Wand2 size={14} /> Fix & Localize Weaknesses <ArrowRight size={14} />
-                  </Button>
-                }
-              />
-              <PanelBody className="space-y-3 text-xs">
-                <FindingList title="Weaknesses" tone="danger" items={analysis.weaknesses} />
-                <FindingList title="Strengths" tone="success" items={analysis.strengths} />
-                <FindingList title="Recommendations" tone="accent" items={analysis.recommendations} />
-              </PanelBody>
-            </Panel>
-          </div>
+          {/* Findings */}
+          <Panel>
+            <PanelHeader
+              icon={<AlertTriangle size={16} />}
+              title="Findings"
+              subtitle="What Muse Spark would change first"
+              right={
+                <Button variant="primary" size="sm" onClick={onFixAndLocalize}>
+                  <Wand2 size={14} /> Fix and localize
+                </Button>
+              }
+            />
+            <div className="grid gap-5 p-4 text-xs md:grid-cols-3">
+              <FindingList title="Weaknesses" tone="danger" items={analysis.weaknesses} />
+              <FindingList title="Strengths" tone="success" items={analysis.strengths} />
+              <FindingList title="Recommendations" tone="accent" items={analysis.recommendations} />
+            </div>
+          </Panel>
 
           {/* Visual teardown */}
           <Panel>
             <PanelHeader
               icon={<Crosshair size={16} />}
-              title="Visual Screenshot Teardown"
-              subtitle="SAM 3.1 detections · clutter score · focal-point heatmap · Muse critique"
+              title="Screenshot teardown"
+              subtitle="SAM 3.1 regions, clutter score, focal-point heatmap and a critique per screenshot"
             />
             <div className="grid gap-4 p-4 md:grid-cols-2">
               {analysis.visual.map((v) => (
@@ -219,25 +236,25 @@ export function AsoAnalytics({ analysis, loading, error, onAnalyze, onFixAndLoca
           <Panel>
             <PanelHeader
               icon={<Search size={16} />}
-              title="Competitor Keyword Gap"
+              title="Keyword gap"
               subtitle={`Terms ${analysis.competitor.title} ranks on that are missing from your listing`}
             />
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs">
-                <thead className="border-b border-panel-border text-[10px] uppercase tracking-wide text-zinc-500">
+                <thead className="border-b border-line text-[10px] text-muted">
                   <tr>
-                    <th className="px-4 py-2">Keyword</th>
-                    <th className="px-4 py-2">Competitor uses</th>
-                    <th className="px-4 py-2">Difficulty</th>
-                    <th className="px-4 py-2">Relevance</th>
-                    <th className="px-4 py-2">Suggested placement</th>
+                    <th className="px-4 py-2 font-medium">Keyword</th>
+                    <th className="px-4 py-2 font-medium">Competitor uses</th>
+                    <th className="px-4 py-2 font-medium">Difficulty</th>
+                    <th className="px-4 py-2 font-medium">Relevance</th>
+                    <th className="px-4 py-2 font-medium">Where to add it</th>
                   </tr>
                 </thead>
                 <tbody>
                   {analysis.keywordGaps.map((g) => (
-                    <tr key={g.keyword} className="border-b border-zinc-800/60 hover:bg-zinc-900/60">
-                      <td className="px-4 py-2 font-medium text-zinc-100">{g.keyword}</td>
-                      <td className="px-4 py-2 text-zinc-400">{g.competitorCount}×</td>
+                    <tr key={g.keyword} className="border-b border-line hover:bg-sunken">
+                      <td className="px-4 py-2 font-medium text-ink">{g.keyword}</td>
+                      <td className="px-4 py-2 text-muted">{g.competitorCount}×</td>
                       <td className="px-4 py-2">
                         <Meter value={g.difficulty} invert />
                       </td>
@@ -277,26 +294,25 @@ export function AsoAnalytics({ analysis, loading, error, onAnalyze, onFixAndLoca
 function ScoreRing({ score }: { score: number }) {
   const r = 54;
   const c = 2 * Math.PI * r;
-  const color = score >= 75 ? "#34d399" : score >= 50 ? "#fbbf24" : "#fb7185";
+  const color = score >= 75 ? "var(--ok)" : score >= 50 ? "var(--warn)" : "var(--bad)";
   return (
-    <div className="relative h-36 w-36">
+    <div className="relative h-28 w-28 shrink-0">
       <svg viewBox="0 0 128 128" className="h-full w-full -rotate-90">
-        <circle cx="64" cy="64" r={r} stroke="#27272a" strokeWidth="10" fill="none" />
+        <circle cx="64" cy="64" r={r} stroke="var(--line)" strokeWidth="8" fill="none" />
         <circle
           cx="64"
           cy="64"
           r={r}
           stroke={color}
-          strokeWidth="10"
+          strokeWidth="8"
           fill="none"
-          strokeLinecap="round"
+          strokeLinecap="butt"
           strokeDasharray={c}
           strokeDashoffset={c * (1 - score / 100)}
         />
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center">
-        <span className="text-3xl font-bold tabular-nums">{score}</span>
-        <span className="text-[10px] uppercase tracking-wide text-muted">/ 100</span>
+        <span className="font-display text-4xl leading-none tabular-nums">{score}</span>
       </div>
     </div>
   );
@@ -304,11 +320,11 @@ function ScoreRing({ score }: { score: number }) {
 
 function AppChip({ listing }: { listing: AsoAnalysis["app"] }) {
   return (
-    <span className="flex items-center gap-1.5 rounded-full border border-zinc-700 bg-zinc-900 px-2 py-0.5">
+    <span className="flex items-center gap-1.5 rounded-full border border-line bg-sunken px-2 py-0.5">
       {/* eslint-disable-next-line @next/next/no-img-element */}
       {listing.icon && <img src={listing.icon} alt="" className="h-4 w-4 rounded" />}
-      <span className="max-w-[110px] truncate text-zinc-200">{listing.title}</span>
-      <span className="text-amber-300">★ {listing.score.toFixed(1)}</span>
+      <span className="max-w-[110px] truncate text-ink">{listing.title}</span>
+      <span className="text-warn">★ {listing.score.toFixed(1)}</span>
       {listing.source === "snapshot" && <Badge tone="warning">snapshot</Badge>}
     </span>
   );
@@ -316,13 +332,13 @@ function AppChip({ listing }: { listing: AsoAnalysis["app"] }) {
 
 function FindingList({ title, items, tone }: { title: string; items: string[]; tone: "danger" | "success" | "accent" }) {
   if (!items.length) return null;
-  const dot = { danger: "bg-rose-400", success: "bg-emerald-400", accent: "bg-violet-400" }[tone];
+  const dot = { danger: "bg-bad", success: "bg-ok", accent: "bg-accent" }[tone];
   return (
     <div>
-      <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-zinc-500">{title}</p>
+      <p className="mb-1.5 text-[10px] font-semibold text-muted">{title}</p>
       <ul className="space-y-1.5">
         {items.map((it, i) => (
-          <li key={i} className="flex gap-2 text-zinc-300">
+          <li key={i} className="flex gap-2 text-ink">
             <span className={cn("mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full", dot)} />
             <span>{it}</span>
           </li>
@@ -336,20 +352,20 @@ function Meter({ value, invert = false }: { value: number; invert?: boolean }) {
   const good = invert ? value < 50 : value >= 50;
   return (
     <div className="flex items-center gap-2">
-      <div className="h-1.5 w-20 overflow-hidden rounded-full bg-zinc-800">
-        <div className={cn("h-full rounded-full", good ? "bg-emerald-400" : "bg-amber-400")} style={{ width: `${value}%` }} />
+      <div className="h-1.5 w-20 overflow-hidden rounded-full bg-sunken">
+        <div className={cn("h-full rounded-full", good ? "bg-ok" : "bg-warn")} style={{ width: `${value}%` }} />
       </div>
-      <span className="font-mono text-[11px] text-zinc-400">{value}</span>
+      <span className="font-mono text-[11px] text-muted">{value}</span>
     </div>
   );
 }
 
-const ACCENTS = ["#a78bfa", "#22d3ee", "#fbbf24", "#f472b6", "#34d399", "#fb7185"];
+const ACCENTS = ["#1f3fbf", "#1e7a4f", "#9a6a0f", "#b3261e", "#15299a", "#17191e"];
 
 function TeardownCard({ audit, weak }: { audit: VisualAudit; weak: boolean }) {
   const [showHeat, setShowHeat] = useState(true);
   return (
-    <div className="flex gap-4 rounded-xl border border-zinc-800 bg-zinc-900/50 p-3">
+    <div className="flex gap-4 rounded-lg border border-line bg-sunken p-3">
       <div className="relative w-[150px] shrink-0 overflow-hidden rounded-lg bg-black" style={{ aspectRatio: "9 / 16" }}>
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src={audit.screenshotDataUrl || audit.screenshotUrl} alt="" className="h-full w-full object-cover" />
@@ -384,7 +400,7 @@ function TeardownCard({ audit, weak }: { audit: VisualAudit; weak: boolean }) {
             </span>
           </div>
         ))}
-        <span className="absolute left-1 top-1 rounded bg-black/70 px-1.5 py-0.5 text-[10px] font-medium">#{audit.index + 1}</span>
+        <span className="absolute left-1 top-1 rounded bg-ink/80 px-1.5 py-0.5 text-[10px] font-medium">#{audit.index + 1}</span>
       </div>
       <div className="flex min-w-0 flex-1 flex-col gap-2 text-xs">
         <div className="flex flex-wrap items-center gap-1.5">
@@ -393,15 +409,15 @@ function TeardownCard({ audit, weak }: { audit: VisualAudit; weak: boolean }) {
             Clutter {audit.clutterScore}
           </Badge>
           <Badge tone="neutral">{audit.segments.length} UI regions</Badge>
-          {weak && <Badge tone="danger">Weakest · will be regenerated</Badge>}
+          {weak && <Badge tone="danger">Weakest, will be regenerated</Badge>}
         </div>
-        <p className="text-zinc-300">{audit.critique}</p>
+        <p className="text-ink">{audit.critique}</p>
         <div className="mt-auto flex items-center justify-between text-[11px] text-muted">
           <span>
-            Focal point {Math.round(audit.focalPoint.x * 100)}% · {Math.round(audit.focalPoint.y * 100)}% · coverage{" "}
+            Focal point at {Math.round(audit.focalPoint.x * 100)}%, {Math.round(audit.focalPoint.y * 100)}%. Regions cover{" "}
             {Math.round(audit.coverage * 100)}%
           </span>
-          <button type="button" onClick={() => setShowHeat((v) => !v)} className="text-violet-300 hover:underline">
+          <button type="button" onClick={() => setShowHeat((v) => !v)} className="text-accent-ink hover:underline">
             {showHeat ? "Hide heatmap" : "Show heatmap"}
           </button>
         </div>

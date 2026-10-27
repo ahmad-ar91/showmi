@@ -24,7 +24,7 @@ interface Props {
   onRemove: () => void;
 }
 
-const ACCENTS = ["#a78bfa", "#22d3ee", "#fbbf24", "#f472b6"];
+const ACCENTS = ["#1f3fbf", "#1e7a4f", "#9a6a0f", "#b3261e"];
 
 /**
  * Interactive SAM 3.1 overlay: every detected UI region is drawn as a clickable
@@ -35,11 +35,11 @@ export function SegmentPicker({ screenshot, index, state, onToggle, onRemove }: 
   const full = selectedCount >= MAX_BADGES_PER_SHOT;
 
   return (
-    <div className="rounded-xl border border-zinc-800 bg-zinc-900/60 p-2">
+    <div className="rounded-lg border border-line bg-sunken p-2">
       <div className="mb-2 flex items-center justify-between px-1">
         <div className="flex items-center gap-2">
-          <span className="rounded bg-zinc-800 px-1.5 py-0.5 text-[10px] font-semibold">#{index + 1}</span>
-          <span className="max-w-[140px] truncate text-[11px] text-zinc-300" title={screenshot.name}>
+          <span className="rounded bg-sunken px-1.5 py-0.5 text-[10px] font-semibold">#{index + 1}</span>
+          <span className="max-w-[140px] truncate text-[11px] text-ink" title={screenshot.name}>
             {screenshot.name}
           </span>
         </div>
@@ -59,7 +59,7 @@ export function SegmentPicker({ screenshot, index, state, onToggle, onRemove }: 
             type="button"
             aria-label="Remove screenshot"
             onClick={onRemove}
-            className="rounded-full p-1 text-zinc-500 hover:bg-zinc-800 hover:text-white"
+            className="rounded-full p-1 text-muted hover:bg-sunken hover:text-panel"
           >
             <X size={12} />
           </button>
@@ -75,7 +75,7 @@ export function SegmentPicker({ screenshot, index, state, onToggle, onRemove }: 
 
         {state?.status === "detecting" && (
           <div className="absolute inset-0 flex items-center justify-center bg-black/50">
-            <div className="flex items-center gap-2 rounded-full bg-zinc-900/90 px-3 py-1.5 text-[11px] text-violet-200">
+            <div className="flex items-center gap-2 rounded-full bg-sunken/90 px-3 py-1.5 text-[11px] text-accent-ink">
               <ScanSearch size={13} className="animate-pulse" /> Detecting UI elements…
             </div>
           </div>
@@ -104,11 +104,11 @@ export function SegmentPicker({ screenshot, index, state, onToggle, onRemove }: 
                   height: `${seg.bbox.h * 100}%`,
                   border: `2px ${on ? "solid" : "dashed"} ${accent}`,
                   background: on ? `${accent}33` : "transparent",
-                  boxShadow: on ? `0 0 0 2px #09090b, 0 0 18px ${accent}80` : "none",
+                  boxShadow: on ? `0 0 0 2px #ffffff, 0 0 0 3px ${accent}` : "none",
                 }}
               >
                 <span
-                  className="absolute -top-2 left-1 flex items-center gap-1 rounded px-1.5 py-0.5 text-[9px] font-semibold leading-none text-black"
+                  className="absolute -top-2 left-1 flex items-center gap-1 rounded px-1.5 py-0.5 text-[9px] font-semibold leading-none text-white"
                   style={{ background: accent }}
                 >
                   {on && <Check size={9} strokeWidth={3} />}
@@ -116,8 +116,8 @@ export function SegmentPicker({ screenshot, index, state, onToggle, onRemove }: 
                   <span className="opacity-70">{(seg.score * 100).toFixed(0)}%</span>
                 </span>
                 {!on && !disabled && (
-                  <span className="absolute inset-0 hidden items-center justify-center text-[10px] font-medium text-white group-hover:flex">
-                    <span className="rounded bg-black/70 px-2 py-0.5">Make badge</span>
+                  <span className="absolute inset-0 hidden items-center justify-center text-[10px] font-medium text-panel group-hover:flex">
+                    <span className="rounded bg-ink/80 px-2 py-0.5">Make badge</span>
                   </span>
                 )}
               </button>
@@ -128,10 +128,10 @@ export function SegmentPicker({ screenshot, index, state, onToggle, onRemove }: 
       {state?.status === "ready" && (
         <p className="mt-2 px-1 text-[10px] text-muted">
           Click a detected region to float it out of the phone as a 3D badge
-          {state.mode === "mock" ? " · simulated SAM 3.1" : ""}.
+          {state.mode === "mock" ? " (simulated regions)" : ""}.
         </p>
       )}
-      {state?.status === "error" && <p className="mt-2 px-1 text-[10px] text-rose-300">{state.error}</p>}
+      {state?.status === "error" && <p className="mt-2 px-1 text-[10px] text-bad">{state.error}</p>}
     </div>
   );
 }

@@ -3,7 +3,10 @@
  * Used by the API route, the Meta AI service layer, and the workspace UI.
  */
 
-export type LocaleCode = "en-US" | "ja-JP" | "id-ID" | "ar-SA" | "es-ES";
+/** BCP-47 style market code, e.g. "de-DE". The supported set lives in src/lib/locales.ts. */
+export type LocaleCode = string;
+
+export type LocaleRegion = "Americas" | "Europe" | "Middle East & Africa" | "Asia Pacific";
 
 export interface LocaleConfig {
   code: LocaleCode;
@@ -13,8 +16,9 @@ export interface LocaleConfig {
   nativeLabel: string;
   flag: string;
   rtl: boolean;
-  /** BCP-47 language tag passed to the model prompt. */
+  /** Language name passed to the model prompt. */
   language: string;
+  region: LocaleRegion;
 }
 
 /** A UI element segmented out of a raw screenshot (SAM 3.1). */

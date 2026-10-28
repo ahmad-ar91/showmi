@@ -40,7 +40,7 @@ const COMPLIANCE_LABEL = { title: "Title", shortDescription: "Short description"
 
 function verdictLine(score: number): string {
   if (score >= 85) return "Strong listing. Localize to grow further.";
-  if (score >= 70) return "Solid, with clear gaps a competitor is exploiting.";
+  if (score >= 70) return "Solid, with clear gaps left to close.";
   if (score >= 50) return "Average. Keywords and visuals both need work.";
   return "Weak listing. Start with the fixes below.";
 }
@@ -59,8 +59,8 @@ export function AsoAnalytics({ analysis, loading, error, onAnalyze, onFixAndLoca
       <Panel>
         <PanelHeader
           icon={<Search size={16} />}
-          title="Audit your listing against a competitor"
-          subtitle="Pulls both Google Play listings, then scores them with SAM 3.1 and Muse Spark"
+          title="Audit your listing"
+          subtitle="Pulls the Google Play listing and scores it with SAM 3.1 and Muse Spark. Add a competitor to find the keywords it wins on."
           right={
             <Button variant="primary" size="sm" disabled={loading} onClick={() => onAnalyze({ appId, competitorAppId: competitorId, demo: true })}>
               {loading ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
@@ -79,7 +79,7 @@ export function AsoAnalytics({ analysis, loading, error, onAnalyze, onFixAndLoca
             />
           </label>
           <label className="block">
-            <span className="mb-1 block text-[11px] font-semibold text-muted">Competitor (Play Store ID or URL)</span>
+            <span className="mb-1 block text-[11px] font-semibold text-muted">Competitor (optional)</span>
             <input
               value={competitorId}
               onChange={(e) => setCompetitorId(e.target.value)}
@@ -91,7 +91,7 @@ export function AsoAnalytics({ analysis, loading, error, onAnalyze, onFixAndLoca
             <Button
               size="md"
               className="w-full md:w-auto"
-              disabled={loading || !appId.trim() || !competitorId.trim()}
+              disabled={loading || !appId.trim()}
               onClick={() => onAnalyze({ appId, competitorAppId: competitorId })}
             >
               {loading ? <Loader2 size={14} className="animate-spin" /> : <BarChart3 size={14} />}
@@ -109,8 +109,8 @@ export function AsoAnalytics({ analysis, loading, error, onAnalyze, onFixAndLoca
             <BarChart3 size={26} className="mb-3 text-faint" />
             <p className="font-display text-lg text-ink">Start with an audit</p>
             <p className="mt-1 max-w-md text-xs text-muted">
-              Enter your Play Store app and a competitor, or load the demo, to get an ASO health score, a screenshot
-              teardown and the keyword gap.
+              Enter your Play Store app, and a competitor if you have one, or load the demo. You get an ASO health
+              score, a screenshot teardown and the keywords you are missing.
             </p>
           </div>
         </Panel>
@@ -146,8 +146,14 @@ export function AsoAnalytics({ analysis, loading, error, onAnalyze, onFixAndLoca
                     <h3 className="font-display text-2xl leading-tight">{verdictLine(analysis.healthScore)}</h3>
                     <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-muted">
                       <AppChip listing={analysis.app} />
-                      <span>against</span>
-                      <AppChip listing={analysis.competitor} />
+                      {analysis.competitor ? (
+                        <>
+                          <span>against</span>
+                          <AppChip listing={analysis.competitor} />
+                        </>
+                      ) : (
+                        <span>scored against category best practice</span>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -237,14 +243,18 @@ export function AsoAnalytics({ analysis, loading, error, onAnalyze, onFixAndLoca
             <PanelHeader
               icon={<Search size={16} />}
               title="Keyword gap"
-              subtitle={`Terms ${analysis.competitor.title} ranks on that are missing from your listing`}
+              subtitle={
+                analysis.competitor
+                  ? `Terms ${analysis.competitor.title} ranks on that are missing from your listing`
+                  : "High-intent terms for your category that your listing never uses"
+              }
             />
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs">
                 <thead className="border-b border-line text-[10px] text-muted">
                   <tr>
                     <th className="px-4 py-2 font-medium">Keyword</th>
-                    <th className="px-4 py-2 font-medium">Competitor uses</th>
+                    {analysis.competitor && <th className="px-4 py-2 font-medium">Competitor uses</th>}
                     <th className="px-4 py-2 font-medium">Difficulty</th>
                     <th className="px-4 py-2 font-medium">Relevance</th>
                     <th className="px-4 py-2 font-medium">Where to add it</th>
@@ -254,7 +264,7 @@ export function AsoAnalytics({ analysis, loading, error, onAnalyze, onFixAndLoca
                   {analysis.keywordGaps.map((g) => (
                     <tr key={g.keyword} className="border-b border-line hover:bg-sunken">
                       <td className="px-4 py-2 font-medium text-ink">{g.keyword}</td>
-                      <td className="px-4 py-2 text-muted">{g.competitorCount}×</td>
+                      {analysis.competitor && <td className="px-4 py-2 text-muted">{g.competitorCount}×</td>}
                       <td className="px-4 py-2">
                         <Meter value={g.difficulty} invert />
                       </td>
@@ -274,7 +284,7 @@ export function AsoAnalytics({ analysis, loading, error, onAnalyze, onFixAndLoca
                   ))}
                   {analysis.keywordGaps.length === 0 && (
                     <tr>
-                      <td colSpan={5} className="px-4 py-6 text-center text-muted">
+                      <td colSpan={analysis.competitor ? 5 : 4} className="px-4 py-6 text-center text-muted">
                         No keyword gap found.
                       </td>
                     </tr>

@@ -3,6 +3,7 @@
  * (or MOCK_MODE=true) so the whole UI, canvas and export pipeline can be demoed offline.
  */
 import { PLAY_LIMITS, type LocaleCode, type PlayStoreMetadata, type PosterCopy, type Segment } from "../../types";
+import { LOCALE_MAP } from "../../locales";
 import { truncateChars } from "../../utils";
 import type {
   DetectedBox,
@@ -65,7 +66,7 @@ export function mockSegments(index: number): Segment[] {
 }
 
 type CopyBank = Record<
-  LocaleCode,
+  string,
   {
     titleSuffix: string;
     short: (app: string) => string;
@@ -150,7 +151,15 @@ export function mockSpark(params: {
   locale: LocaleCode;
   screenshots: string[];
 }): SparkOutput {
-  const bank = COPY_BANK[params.locale];
+  // Hand-written copy exists for five showcase markets; every other market reuses the
+  // English copy and says so, because simulation cannot write in an arbitrary language.
+  const native = COPY_BANK[params.locale];
+  const bank = native ?? {
+    ...COPY_BANK["en-US"],
+    note: `Simulated output: English copy shown. Connect a text model to write natively in ${
+      LOCALE_MAP[params.locale]?.language ?? params.locale
+    }.`,
+  };
   const app = params.appName;
   const desc = params.description.trim() || "An app that helps you get things done.";
   return enforceLimits(
@@ -171,6 +180,43 @@ export function mockSpark(params: {
 /* -------------------------------------------------------------------------- */
 /*  3. Muse Image - culturally-aware poster backgrounds                        */
 /* -------------------------------------------------------------------------- */
+
+/** Stable 32-bit hash so a market always gets the same simulated palette. */
+function hashCode(text: string): number {
+  let h = 2166136261;
+  for (let i = 0; i < text.length; i++) {
+    h ^= text.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return h >>> 0;
+}
+
+function hsl(h: number, s: number, l: number): string {
+  return `hsl(${Math.round(h)} ${s}% ${l}%)`;
+}
+
+/** Palette and motif derived from the market code, for markets without a hand-made theme. */
+function generatedTheme(
+  locale: LocaleCode,
+  shapes: { hexagons: string; waves: string; sakura: string; bars: string },
+): { from: string; to: string; accent: string; motif: string } {
+  const h = hashCode(locale);
+  const hue = h % 360;
+  const accentHue = (hue + 150 + (h % 60)) % 360;
+  const accent = hsl(accentHue, 75, 60);
+  const motifs = [
+    `<g stroke="${accent}" stroke-width="2" fill="none" opacity="0.28">${shapes.hexagons}</g>`,
+    `<g stroke="${accent}" stroke-width="3" fill="none" opacity="0.25">${shapes.waves}</g>`,
+    `<g fill="#ffffff" opacity="0.3">${shapes.sakura}</g>`,
+    `<circle cx="540" cy="-200" r="700" fill="${accent}" opacity="0.16"/><g fill="#ffffff" opacity="0.1">${shapes.bars}</g>`,
+  ];
+  return {
+    from: hsl(hue, 55, 14),
+    to: hsl((hue + 25) % 360, 60, 38),
+    accent,
+    motif: motifs[(h >>> 8) % motifs.length],
+  };
+}
 
 /** SVG gradient + motif per locale, encoded as a data URL. Renders on canvas without CORS issues. */
 export function mockBackground(locale: LocaleCode): string {
@@ -232,7 +278,7 @@ export function mockBackground(locale: LocaleCode): string {
       motif: `<circle cx="540" cy="-200" r="700" fill="#fde68a" opacity="0.18"/><g fill="#ffffff" opacity="0.12">${bars}</g>`,
     },
   };
-  const t = themes[locale];
+  const t = themes[locale] ?? generatedTheme(locale, { hexagons, waves, sakura, bars });
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="1080" height="1920" viewBox="0 0 1080 1920"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${t.from}"/><stop offset="1" stop-color="${t.to}"/></linearGradient><radialGradient id="glow" cx="0.5" cy="0.55" r="0.6"><stop offset="0" stop-color="${t.accent}" stop-opacity="0.35"/><stop offset="1" stop-color="${t.accent}" stop-opacity="0"/></radialGradient></defs><rect width="1080" height="1920" fill="url(#g)"/>${t.motif}<rect width="1080" height="1920" fill="url(#glow)"/></svg>`;
   return `data:image/svg+xml;base64,${Buffer.from(svg).toString("base64")}`;
 }

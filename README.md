@@ -1,11 +1,11 @@
 # LocaLaunch AI — End-to-End ASO Analytics & Localization Agent
 
-Audit a Google Play listing against a competitor, fix its weaknesses with localized copy and posters, and ship a Fastlane bundle — in three connected tabs:
+Audit a Google Play listing (optionally against a competitor), fix its weaknesses with localized copy and posters, and ship a Fastlane bundle — in three connected tabs:
 
 | Tab | What it does |
 | --- | --- |
-| **1 · ASO Intelligence & Audit** | Pulls live listings with `google-play-scraper`, scores 5 metrics on a `recharts` radar (ASO Health 0–100), tears down screenshots with SAM 3.1 (detections, clutter score, focal-point heatmap, Muse critique) and lists the competitor keyword gap. **Fix and localize** hands everything to Tab 2. |
-| **2 · Localization Studio** | Interactive SAM segment picker → floating 3D badges on 9:16 posters, Muse Spark copy with missing keywords injected, Muse Image cultural backgrounds, Play Console limits enforced. |
+| **1 · ASO Intelligence & Audit** | Pulls live listings with `google-play-scraper`, scores 5 metrics on a `recharts` radar (ASO Health 0–100), tears down screenshots with SAM 3.1 (detections, clutter score, focal-point heatmap, Muse critique) and lists missing keywords: the gap against a competitor if you add one, otherwise high-intent terms for your category. **Fix and localize** hands everything to Tab 2. |
+| **2 · Localization Studio** | Pick any number of 65 Google Play markets (searchable, grouped by region), interactive SAM segment picker → floating 3D badges on 9:16 posters, Muse Spark copy with missing keywords injected, Muse Image cultural backgrounds, Play Console limits enforced. |
 | **3 · Store Simulator & Export** | Google Play search mock-up: your listing before vs after, next to the competitor, plus one-click Fastlane ZIP. |
 
 Press **Load demo: Ritmova vs Paceto** on Tab 1 for a one-click judge demo (Ritmova vs Paceto, with a bundled snapshot fallback if scraping is blocked).
@@ -59,7 +59,7 @@ AI_SEGMENT_PROVIDER=google
 | `deepseek` | deepseek-flash (text + vision) or deepseek-v4-pro (text only) | — | — | `DEEPSEEK_API_KEY` |
 | `mock` | deterministic copy bank | SVG motifs | preset regions | none |
 
-A vendor without a key (or one that cannot serve a capability) silently resolves to `mock`. To add another vendor, implement the interfaces in `src/lib/ai/providers/<name>.ts` and register it in `src/lib/ai/registry.ts`.
+A vendor without a key (or one that cannot serve a capability) silently resolves to `mock`. `AI_CONCURRENCY` (default 4) caps how many markets are generated in parallel. To add another vendor, implement the interfaces in `src/lib/ai/providers/<name>.ts` and register it in `src/lib/ai/registry.ts`.
 
 ## Project layout
 
@@ -78,7 +78,7 @@ src/
     ai/registry.ts               # Env-driven vendor selection with mock fallback
     ai/providers/{meta,google,deepseek,mock}.ts
     types.ts                     # Shared request/response types, Google Play limits
-    locales.ts                   # Supported markets (en-US, ja-JP, id-ID, ar-SA RTL, es-ES)
+    locales.ts                   # 65 Google Play markets with Fastlane folder codes; add one by appending a row
     export.ts                    # PNG render + Fastlane ZIP builder
     image.ts                     # Client-side screenshot resize helpers
   components/

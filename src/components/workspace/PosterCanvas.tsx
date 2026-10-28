@@ -69,7 +69,7 @@ export const PosterCanvas = forwardRef<HTMLDivElement, Props>(function PosterCan
     position: "absolute",
     left: 24,
     right: 24,
-    ...(textTop ? { top: 34 } : { bottom: 36 }),
+    ...(textTop ? { top: 44 } : { bottom: 44 }),
     textAlign: "center",
     direction: rtl ? "rtl" : "ltr",
     zIndex: 5,
@@ -86,7 +86,7 @@ export const PosterCanvas = forwardRef<HTMLDivElement, Props>(function PosterCan
         overflow: "hidden",
         borderRadius: 18,
         backgroundColor: "#111",
-        fontFamily: "var(--font-geist-sans), system-ui, -apple-system, 'Segoe UI', sans-serif",
+        fontFamily: "var(--font-plex-sans), system-ui, -apple-system, 'Segoe UI', sans-serif",
         color: "#fff",
         flex: "0 0 auto",
       }}
@@ -112,25 +112,12 @@ export const PosterCanvas = forwardRef<HTMLDivElement, Props>(function PosterCan
 
       {/* (b) Localized headline & sub-headline */}
       <div style={textBlockStyle}>
-        <div
-          style={{
-            display: "inline-block",
-            marginBottom: 8,
-            padding: "3px 10px",
-            borderRadius: 999,
-            background: "rgba(255,255,255,0.14)",
-            backdropFilter: "blur(6px)",
-            fontSize: 10,
-            letterSpacing: 1.5,
-            textTransform: "uppercase",
-            fontWeight: 600,
-          }}
-        >
-          {loc.flag} {loc.label}
-        </div>
         <h3
           style={{
             margin: 0,
+            // The app styles h3 with its serif display face; posters keep the bold sans.
+            fontFamily: "inherit",
+            fontVariationSettings: "normal",
             fontSize: 30,
             lineHeight: 1.1,
             fontWeight: 800,
@@ -250,23 +237,6 @@ export const PosterCanvas = forwardRef<HTMLDivElement, Props>(function PosterCan
                 display: "block",
               }}
             />
-            <span
-              style={{
-                position: "absolute",
-                left: 6,
-                bottom: 6,
-                padding: "2px 6px",
-                borderRadius: 6,
-                background: "rgba(17,17,20,0.75)",
-                color: "#fff",
-                fontSize: 8,
-                fontWeight: 600,
-                letterSpacing: 0.5,
-                direction: "ltr",
-              }}
-            >
-              {seg.label}
-            </span>
           </div>
         );
       })}

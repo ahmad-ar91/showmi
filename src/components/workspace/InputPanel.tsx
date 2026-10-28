@@ -1,12 +1,12 @@
 "use client";
 
 import { useCallback, useRef, useState } from "react";
-import { Loader2, Settings2, Sparkles, Trash2, Upload } from "lucide-react";
+import { Loader2, Search, Settings2, Sparkles, Trash2, Upload, X } from "lucide-react";
 import { SegmentPicker, type ShotSegmentation } from "./SegmentPicker";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Panel, PanelBody, PanelHeader } from "@/components/ui/panel";
-import { LOCALES } from "@/lib/locales";
+import { LOCALE_MAP, LOCALE_REGIONS, LOCALES, localeSearchText } from "@/lib/locales";
 import { fileToScreenshot, type UploadedScreenshot } from "@/lib/image";
 import type { LocaleCode } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -47,6 +47,7 @@ export function InputPanel({
 }: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [dragOver, setDragOver] = useState(false);
+  const [marketQuery, setMarketQuery] = useState("");
   const [uploadError, setUploadError] = useState<string | null>(null);
 
   const addFiles = useCallback(
@@ -198,44 +199,113 @@ export function InputPanel({
           </div>
         </div>
 
-        {/* Locales */}
+        {/* Markets */}
         <div>
           <div className="mb-2 flex items-center justify-between">
-            <label className="text-xs font-semibold text-muted">Markets</label>
-            <span className="text-[11px] text-muted">{selectedLocales.length} selected</span>
+            <label htmlFor="market-search" className="text-xs font-semibold text-muted">
+              Markets
+            </label>
+            <span className="text-[11px] text-muted">
+              {selectedLocales.length} of {LOCALES.length} selected
+              {selectedLocales.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => selectedLocales.forEach((c) => onToggleLocale(c))}
+                  className="ml-2 text-accent hover:underline"
+                >
+                  Clear
+                </button>
+              )}
+            </span>
           </div>
-          <ul className="space-y-1.5">
-            {LOCALES.map((l) => {
-              const checked = selectedLocales.includes(l.code);
-              return (
-                <li key={l.code}>
-                  <label
-                    className={cn(
-                      "flex cursor-pointer items-center gap-3 rounded-lg border px-3 py-2 transition-colors",
-                      checked
-                        ? "border-accent bg-accent-soft"
-                        : "border-line bg-sunken hover:border-line-strong",
-                    )}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={checked}
-                      onChange={() => onToggleLocale(l.code)}
-                      className="h-4 w-4 accent-accent"
-                    />
-                    <span className="text-lg leading-none">{l.flag}</span>
-                    <span className="flex-1 text-sm">
+
+          {selectedLocales.length > 0 && (
+            <ul className="mb-2 flex flex-wrap gap-1.5" aria-label="Selected markets">
+              {selectedLocales.map((code) => {
+                const l = LOCALE_MAP[code];
+                if (!l) return null;
+                return (
+                  <li key={code}>
+                    <button
+                      type="button"
+                      onClick={() => onToggleLocale(code)}
+                      title={`Remove ${l.label}`}
+                      className="flex items-center gap-1 rounded-sm border border-accent/30 bg-accent-soft px-1.5 py-0.5 text-[11px] text-accent-ink hover:border-accent"
+                    >
+                      <span>{l.flag}</span>
                       {l.label}
-                      <span className="ml-2 text-[11px] text-muted" dir={l.rtl ? "rtl" : "ltr"}>
-                        {l.nativeLabel}
-                      </span>
-                    </span>
-                    {l.rtl && <Badge tone="accent">RTL</Badge>}
-                  </label>
-                </li>
+                      <X size={10} />
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+
+          <div className="relative mb-2">
+            <Search size={14} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-faint" />
+            <input
+              id="market-search"
+              value={marketQuery}
+              onChange={(e) => setMarketQuery(e.target.value)}
+              placeholder="Search language, country or code"
+              className="h-9 w-full rounded-md border border-line bg-panel pl-8 pr-3 text-sm placeholder:text-faint focus:border-accent focus:outline-none"
+            />
+          </div>
+
+          <div className="max-h-72 overflow-y-auto rounded-md border border-line">
+            {LOCALE_REGIONS.map((region) => {
+              const q = marketQuery.trim().toLowerCase();
+              const rows = LOCALES.filter((l) => l.region === region && (!q || localeSearchText(l).includes(q)));
+              if (!rows.length) return null;
+              return (
+                <div key={region}>
+                  <p className="sticky top-0 z-10 border-b border-line bg-sunken px-3 py-1 text-[11px] font-medium text-muted">
+                    {region}
+                  </p>
+                  <ul>
+                    {rows.map((l) => {
+                      const checked = selectedLocales.includes(l.code);
+                      return (
+                        <li key={l.code}>
+                          <label
+                            className={cn(
+                              "flex cursor-pointer items-center gap-2.5 px-3 py-1.5 text-sm transition-colors",
+                              checked ? "bg-accent-soft" : "hover:bg-sunken",
+                            )}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={checked}
+                              onChange={() => onToggleLocale(l.code)}
+                              className="h-3.5 w-3.5 accent-accent"
+                            />
+                            <span className="leading-none">{l.flag}</span>
+                            <span className="min-w-0 flex-1 truncate">
+                              {l.label}
+                              <span className="ml-2 text-[11px] text-muted" dir={l.rtl ? "rtl" : "ltr"}>
+                                {l.nativeLabel}
+                              </span>
+                            </span>
+                            {l.rtl && <Badge tone="neutral">RTL</Badge>}
+                            <span className="font-mono text-[10px] text-faint">{l.playStoreCode}</span>
+                          </label>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </div>
               );
             })}
-          </ul>
+            {LOCALES.every((l) => !localeSearchText(l).includes(marketQuery.trim().toLowerCase())) && (
+              <p className="px-3 py-4 text-center text-xs text-muted">No market matches “{marketQuery}”.</p>
+            )}
+          </div>
+          {selectedLocales.length > 8 && (
+            <p className="mt-1.5 text-[11px] text-muted">
+              Each market adds one copy and one background request, so large selections take longer.
+            </p>
+          )}
         </div>
 
         <div className="space-y-2 pt-2">

@@ -24,7 +24,7 @@ import { cn } from "@/lib/utils";
 type Tab = "analytics" | "studio" | "simulator";
 
 const TABS: { id: Tab; label: string; hint: string; step: string }[] = [
-  { id: "analytics", label: "Audit the listing", hint: "Compare with a competitor", step: "1" },
+  { id: "analytics", label: "Audit the listing", hint: "Score it, optionally vs a competitor", step: "1" },
   { id: "studio", label: "Localize and fix", hint: "Copy, posters, badges", step: "2" },
   { id: "simulator", label: "Preview and export", hint: "Store mock-up, Fastlane ZIP", step: "3" },
 ];

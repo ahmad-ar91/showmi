@@ -82,7 +82,7 @@ export function StoreSimulator({ analysis, result, screenshots, appName, descrip
       }
     : null;
 
-  const competitor: ListingCard | null = analysis
+  const competitor: ListingCard | null = analysis?.competitor
     ? {
         key: "competitor",
         variant: "competitor",
@@ -103,7 +103,7 @@ export function StoreSimulator({ analysis, result, screenshots, appName, descrip
         <PanelHeader
           icon={<Store size={16} />}
           title="Play Store preview"
-          subtitle="Your listing before and after, next to the competitor"
+          subtitle="Your listing before and after, next to a competitor if you added one"
           right={
             <div className="flex items-center gap-2">
               {localeOptions.length > 0 && (
@@ -156,7 +156,7 @@ export function StoreSimulator({ analysis, result, screenshots, appName, descrip
               <ResultCard card={competitor} />
             ) : (
               <div className="flex items-center justify-center rounded-lg border-2 border-dashed border-zinc-300 p-6 text-center text-xs text-muted">
-                Competitor appears after an audit
+                Add a competitor in the audit to compare side by side
               </div>
             )}
           </div>

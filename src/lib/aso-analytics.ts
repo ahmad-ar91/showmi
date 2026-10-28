@@ -1,5 +1,5 @@
 /**
- * ASO Intelligence: audits a Google Play listing against a competitor using
+ * ASO Intelligence: audits a Google Play listing, optionally against a competitor, using
  *   - the segmentation provider (SAM 3.1 by default) for a visual teardown of screenshots
  *   - the text provider (Muse Spark / Wonder by default) for scoring, critique and keyword gaps
  *   - deterministic checks for Google Play metadata compliance
@@ -50,7 +50,7 @@ export interface VisualAudit {
 
 export interface KeywordGap {
   keyword: string;
-  /** How many times the competitor listing uses it. */
+  /** How many times the competitor listing uses it (0 when audited without a competitor). */
   competitorCount: number;
   /** 1..100 estimated ranking difficulty. */
   difficulty: number;
@@ -62,7 +62,8 @@ export interface KeywordGap {
 
 export interface AsoAnalysis {
   app: StoreListing;
-  competitor: StoreListing;
+  /** Null when the audit ran without a competitor. */
+  competitor: StoreListing | null;
   healthScore: number;
   metrics: AsoMetrics;
   compliance: ComplianceCheck[];
@@ -108,6 +109,31 @@ function countTerms(text: string): Map<string, number> {
   const m = new Map<string, number>();
   for (const w of tokenize(text)) m.set(w, (m.get(w) ?? 0) + 1);
   return m;
+}
+
+/**
+ * Without a competitor: common high-intent store search terms that the listing never mentions.
+ * Used by the simulated analysis and as a hint for the model.
+ */
+// Category-neutral modifiers only; the live model infers category-specific terms itself.
+const OPPORTUNITY_TERMS = [
+  "free", "offline", "daily", "beginner", "easy", "fast", "private", "secure", "ad-free",
+  "family", "personalized", "progress", "community", "premium", "unlimited",
+];
+
+export function keywordOpportunityHeuristic(app: StoreListing, max = 8): KeywordGap[] {
+  const ours = countTerms(`${app.title} ${app.summary} ${app.description}`);
+  const genre = tokenize(app.genre);
+  return [...genre, ...OPPORTUNITY_TERMS]
+    .filter((kw, i, all) => all.indexOf(kw) === i && !ours.has(kw))
+    .slice(0, max)
+    .map((keyword, i) => ({
+      keyword,
+      competitorCount: 0,
+      difficulty: 40 + ((i * 13) % 45),
+      relevance: Math.max(45, 90 - i * 5),
+      placement: i < 2 ? ("short" as const) : ("full" as const),
+    }));
 }
 
 /** Keyword candidates the competitor repeats but our listing never mentions. */
@@ -161,8 +187,8 @@ interface ModelVerdict {
   recommendations: string[];
 }
 
-function mockVerdict(app: StoreListing, competitor: StoreListing, shots: number): ModelVerdict {
-  const gaps = keywordGapHeuristic(app, competitor);
+function mockVerdict(app: StoreListing, competitor: StoreListing | null, shots: number): ModelVerdict {
+  const gaps = competitor ? keywordGapHeuristic(app, competitor) : keywordOpportunityHeuristic(app);
   const hasCta = /\b(download|start|try|join|get started|learn now)\b/i.test(`${app.summary} ${app.description}`);
   return {
     metrics: {
@@ -181,7 +207,9 @@ function mockVerdict(app: StoreListing, competitor: StoreListing, shots: number)
     })),
     keywordGaps: gaps,
     weaknesses: [
-      `Short description does not mention ${gaps[0]?.keyword ?? "core use-case"} which the competitor leads with`,
+      competitor
+        ? `Short description does not mention ${gaps[0]?.keyword ?? "core use-case"} which the competitor leads with`
+        : `Short description misses the high-intent term "${gaps[0]?.keyword ?? "free"}"`,
       "Screenshots rely on in-app text rather than localized marketing headlines",
       hasCta ? "CTA appears only deep in the full description" : "No clear call-to-action in the short description",
     ],
@@ -198,7 +226,7 @@ function mockVerdict(app: StoreListing, competitor: StoreListing, shots: number)
 
 export async function auditListing(
   app: StoreListing,
-  competitor: StoreListing,
+  competitor: StoreListing | null,
   opts: { screenshots?: number } = {},
 ): Promise<AsoAnalysis> {
   const status = providerStatus();
@@ -245,11 +273,19 @@ export async function auditListing(
     verdict = mockVerdict(app, competitor, shots.length);
   } else {
     try {
-      const system = `You are a senior App Store Optimization (ASO) analyst. Compare OUR Google Play listing with a COMPETITOR and return ONLY JSON:
+      const system = `You are a senior App Store Optimization (ASO) analyst. ${
+        competitor
+          ? "Compare OUR Google Play listing with a COMPETITOR"
+          : "Audit OUR Google Play listing against best practice for its category"
+      } and return ONLY JSON:
 {
   "metrics": { "keywordOptimization": 0-100, "visualClarity": 0-100, "culturalFit": 0-100, "ctaStrength": 0-100 },
   "visualCritiques": [ { "index": number, "critique": string (<= 2 sentences, concrete), "score": 0-100 } ], // one per attached screenshot, in order
-  "keywordGaps": [ { "keyword": string, "competitorCount": number, "difficulty": 1-100, "relevance": 1-100, "placement": "title"|"short"|"full" } ], // 6-10 high-intent keywords the competitor uses that we do not
+  "keywordGaps": [ { "keyword": string, "competitorCount": number, "difficulty": 1-100, "relevance": 1-100, "placement": "title"|"short"|"full" } ], // 6-10 ${
+        competitor
+          ? "high-intent keywords the competitor uses that we do not"
+          : "high-intent keywords people search for in this category that our listing never uses; set competitorCount to 0"
+      }
   "weaknesses": string[],      // 3-5 specific, fixable weaknesses of OUR listing
   "strengths": string[],       // 2-3
   "recommendations": string[]  // 3-5 actionable fixes, most impactful first
@@ -262,19 +298,28 @@ Rating: ${app.score} (${app.ratings} ratings), installs ${app.installs}
 Full description:
 ${app.description.slice(0, 3500)}
 
-COMPETITOR (${competitor.appId})
+${
+        competitor
+          ? `COMPETITOR (${competitor.appId})
 Title: ${competitor.title}
 Short: ${competitor.summary}
 Rating: ${competitor.score} (${competitor.ratings} ratings), installs ${competitor.installs}
 Full description:
 ${competitor.description.slice(0, 3500)}
-
+`
+          : `CATEGORY: ${app.genre || "unknown"} (no competitor given; judge against strong listings in this category)
+`
+      }
 DETECTED UI REGIONS (segmentation provider ${segProvider.model}):
 ${segmentsPerShot.map((s, i) => `screenshot ${i + 1}: ${s.length} regions, coverage ${(visualStats(s).coverage * 100).toFixed(0)}%, labels ${s.map((g) => g.label).join(", ")}`).join("\n")}
 
-Heuristic keyword gaps for reference: ${keywordGapHeuristic(app, competitor)
-        .map((g) => g.keyword)
-        .join(", ")}`;
+${
+        competitor
+          ? `Heuristic keyword gaps for reference: ${keywordGapHeuristic(app, competitor)
+              .map((g) => g.keyword)
+              .join(", ")}`
+          : "Infer the keyword opportunities from what this app does and how people search its category. Never suggest a term that does not fit this specific app."
+      }`;
       verdict = await textProvider.chatJson<ModelVerdict>({
         system,
         user,

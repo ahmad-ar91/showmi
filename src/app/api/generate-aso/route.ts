@@ -3,7 +3,8 @@ import { generateAsoPackage, providerStatus } from "@/lib/meta-ai";
 import { isLocaleCode } from "@/lib/locales";
 import type { GenerateAsoRequest, LocaleCode, Segment } from "@/lib/types";
 
-export const maxDuration = 120;
+// Many markets run in batches of AI_CONCURRENCY, so allow the longest serverless window.
+export const maxDuration = 300;
 
 const MAX_SCREENSHOTS = 3;
 const MAX_DESCRIPTION = 1500;

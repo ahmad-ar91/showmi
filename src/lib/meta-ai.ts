@@ -166,6 +166,20 @@ export async function generateBackground(params: { locale: LocaleCode; descripti
 /*  Orchestrator                                                               */
 /* -------------------------------------------------------------------------- */
 
+/** Like Promise.all over items.map(fn), but with at most `limit` calls in flight. Keeps order. */
+async function mapLimit<T, R>(items: T[], limit: number, fn: (item: T, index: number) => Promise<R>): Promise<R[]> {
+  const out = new Array<R>(items.length);
+  let next = 0;
+  const workers = Array.from({ length: Math.max(1, Math.min(limit, items.length)) }, async () => {
+    while (next < items.length) {
+      const i = next++;
+      out[i] = await fn(items[i], i);
+    }
+  });
+  await Promise.all(workers);
+  return out;
+}
+
 function deriveAppName(req: GenerateAsoRequest): string {
   if (req.appName?.trim()) return req.appName.trim().slice(0, 20);
   const words = req.description
@@ -208,8 +222,12 @@ export async function generateAsoPackage(req: GenerateAsoRequest): Promise<Gener
     }),
   );
 
-  const locales: LocaleResult[] = await Promise.all(
-    req.locales.map(async (locale) => {
+  // Each market costs one text and one image call; cap how many run at once so a long
+  // market list does not trip provider rate limits.
+  const locales: LocaleResult[] = await mapLimit(
+    req.locales,
+    Number(process.env.AI_CONCURRENCY) || 4,
+    async (locale) => {
       const params: LocaleMetadataParams = {
         appName,
         description: req.description,
@@ -237,7 +255,7 @@ export async function generateAsoPackage(req: GenerateAsoRequest): Promise<Gener
         culturalNote: spark.culturalNote,
         backgroundDataUrl,
       };
-    }),
+    },
   );
 
   return {

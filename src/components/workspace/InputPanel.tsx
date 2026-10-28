@@ -72,9 +72,9 @@ export function InputPanel({
 
   const loadSample = async () => {
     try {
-      const res = await fetch("/samples/ritmova-home.png");
+      const res = await fetch("/samples/ritmova-home.jpg");
       const blob = await res.blob();
-      await addFiles([new File([blob], "ritmova-home.png", { type: "image/png" })]);
+      await addFiles([new File([blob], "ritmova-home.jpg", { type: "image/jpeg" })]);
     } catch (err) {
       setUploadError((err as Error).message);
     }

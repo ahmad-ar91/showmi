@@ -59,7 +59,7 @@ export default function StyleguidePage() {
   const [segment, setSegment] = useState<"classic" | "tilt" | "offset">("classic");
   const [tab, setTab] = useState("en-US");
   const [checked, setChecked] = useState(true);
-  const [text, setText] = useState("Learn Spanish in 5 minutes a day");
+  const [text, setText] = useState("Build better habits in five minutes a day");
 
   return (
     <main className="mx-auto max-w-5xl space-y-6 px-5 py-10">

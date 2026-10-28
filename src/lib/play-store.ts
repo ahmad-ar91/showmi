@@ -1,7 +1,5 @@
 import "server-only";
 import gplay from "google-play-scraper";
-import ritmova from "./demo/com.example.ritmova.json";
-import paceto from "./demo/com.example.paceto.json";
 
 /** Normalised Google Play listing used by the analytics module. */
 export interface StoreListing {
@@ -17,17 +15,9 @@ export interface StoreListing {
   developer: string;
   genre: string;
   url: string;
-  /** "live" when scraped just now, "snapshot" when served from the bundled demo data. */
-  source: "live" | "snapshot";
+  /** "live" when scraped from Google Play just now, "sample" for the fictional demo apps. */
+  source: "live" | "sample";
 }
-
-export const DEMO_APP_ID = "com.example.ritmova";
-export const DEMO_COMPETITOR_ID = "com.example.paceto";
-
-const SNAPSHOTS: Record<string, Omit<StoreListing, "source">> = {
-  [DEMO_APP_ID]: ritmova,
-  [DEMO_COMPETITOR_ID]: paceto,
-};
 
 /** Accepts "com.foo.bar", a Play Store URL with ?id=, or surrounding whitespace. */
 export function parseAppId(input: string): string | null {
@@ -67,10 +57,7 @@ interface GplayApp {
   url?: string;
 }
 
-/**
- * Fetches a listing from Google Play. Falls back to the bundled snapshot for the demo apps
- * when scraping fails (offline judging, rate limits, layout changes).
- */
+/** Fetches a listing from Google Play. */
 export async function fetchListing(appId: string, opts: { lang?: string; country?: string } = {}): Promise<StoreListing> {
   try {
     const a = (await gplay.app({ appId, lang: opts.lang ?? "en", country: opts.country ?? "us" })) as GplayApp;
@@ -90,15 +77,6 @@ export async function fetchListing(appId: string, opts: { lang?: string; country
       source: "live",
     };
   } catch (err) {
-    const snap = SNAPSHOTS[appId];
-    if (snap)
-      return {
-        ...snap,
-        title: decodeEntities(snap.title),
-        summary: decodeEntities(snap.summary),
-        description: decodeEntities(snap.description),
-        source: "snapshot",
-      };
     throw new Error(`Could not fetch "${appId}" from Google Play: ${(err as Error).message}`);
   }
 }

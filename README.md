@@ -10,7 +10,7 @@ Audit a Google Play listing (optionally against a competitor), fix its weaknesse
 | **2 · Localization Studio** | Pick any number of 65 Google Play markets (searchable, grouped by region), interactive SAM segment picker → floating 3D badges on 9:16 posters, Muse Spark copy with missing keywords injected, Muse Image cultural backgrounds, Play Console limits enforced. |
 | **3 · Store Simulator & Export** | Google Play search mock-up: your listing before vs after, next to the competitor, plus one-click Fastlane ZIP. |
 
-Press **Load demo: Ritmova vs Paceto** on Tab 1 for a one-click judge demo (Ritmova vs Paceto, with a bundled snapshot fallback if scraping is blocked).
+Press **Try the demo with sample apps** on Tab 1 for a one-click judge demo. It audits Ritmova against Paceto, two fictional apps with original copy and generated screenshots, so it works offline and uses no third-party brands.
 
 Powered by Meta models by default:
 
@@ -76,7 +76,8 @@ src/
   lib/
     meta-ai.ts                   # Orchestrator (segmentation, copy, backgrounds) over the provider interfaces
     aso-analytics.ts             # ASO audit: metrics, visual teardown, keyword gap, compliance
-    play-store.ts                # google-play-scraper wrapper + bundled demo snapshots
+    play-store.ts                # google-play-scraper wrapper
+    demo/sample-apps.ts          # Fictional demo apps (Ritmova, Paceto) with original copy and screenshots
     ai/types.ts                  # TextProvider / ImageProvider / SegmentProvider interfaces
     ai/registry.ts               # Env-driven vendor selection with mock fallback
     ai/providers/{meta,google,deepseek,mock}.ts

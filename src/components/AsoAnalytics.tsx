@@ -86,7 +86,7 @@ export function AsoAnalytics({ analysis, loading, error, onAnalyze, onFixAndLoca
           description="We pull the Google Play listing and score it. Add a competitor to see which keywords it wins on."
           actions={
             <TextButton disabled={loading} onClick={() => onAnalyze({ appId, competitorAppId: competitorId, demo: true })}>
-              Try the demo: Ritmova vs Paceto
+              Try the demo with sample apps
             </TextButton>
           }
         />
@@ -97,7 +97,7 @@ export function AsoAnalytics({ analysis, loading, error, onAnalyze, onFixAndLoca
                 id="audit-app"
                 value={appId}
                 onChange={(e) => setAppId(e.target.value)}
-                placeholder="com.example.ritmova or a Play Store link"
+                placeholder="com.yourcompany.app or a Play Store link"
               />
             </Field>
             <Field label="Competitor" htmlFor="audit-competitor" aside="Optional">
@@ -105,7 +105,7 @@ export function AsoAnalytics({ analysis, loading, error, onAnalyze, onFixAndLoca
                 id="audit-competitor"
                 value={competitorId}
                 onChange={(e) => setCompetitorId(e.target.value)}
-                placeholder="com.example.paceto"
+                placeholder="com.competitor.app"
               />
             </Field>
             <Button type="submit" variant="primary" loading={loading} disabled={!appId.trim()}>
@@ -301,7 +301,7 @@ function AppName({ listing }: { listing: NonNullable<AsoAnalysis["competitor"]> 
       {listing.icon && <img src={listing.icon} alt="" className="h-4 w-4 translate-y-[3px] rounded" />}
       <span className="font-medium text-ink">{listing.title}</span>
       <span className="font-mono text-xs">{listing.score.toFixed(1)} rating</span>
-      {listing.source === "snapshot" && <Tag tone="warn">saved snapshot</Tag>}
+      {listing.source === "sample" && <Tag>sample app</Tag>}
     </span>
   );
 }

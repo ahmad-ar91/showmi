@@ -4,24 +4,38 @@ import { BRAND } from "./brand";
 import { LOCALE_MAP } from "./locales";
 import type { LocaleResult } from "./types";
 
-/** Poster DOM size in CSS px; exported at 3x = 1080 x 1920 (Play Store friendly). */
+/** Poster DOM size in CSS px; exported at 3x = 1080 x 1920 (Play Store phone screenshot). */
 export const POSTER_WIDTH = 360;
 export const POSTER_HEIGHT = 640;
-const EXPORT_PIXEL_RATIO = 3;
+const POSTER_RATIO = 3;
 
-export interface PosterNodeRef {
-  locale: LocaleResult["locale"];
-  index: number;
-  node: HTMLElement;
+/** Feature graphic DOM size in CSS px; exported at 2x = 1024 x 500 (Play Store requirement). */
+export const FEATURE_WIDTH = 512;
+export const FEATURE_HEIGHT = 250;
+const FEATURE_RATIO = 2;
+
+export type ExportItem =
+  | { kind: "poster"; locale: LocaleResult["locale"]; index: number; node: HTMLElement }
+  | { kind: "feature"; locale: LocaleResult["locale"]; node: HTMLElement };
+
+/** Kept for callers that only deal with posters. */
+export type PosterNodeRef = Extract<ExportItem, { kind: "poster" }>;
+
+function size(item: ExportItem) {
+  return item.kind === "poster"
+    ? { width: POSTER_WIDTH, height: POSTER_HEIGHT, pixelRatio: POSTER_RATIO }
+    : { width: FEATURE_WIDTH, height: FEATURE_HEIGHT, pixelRatio: FEATURE_RATIO };
 }
 
-async function renderPoster(node: HTMLElement): Promise<string> {
-  return toPng(node, {
-    pixelRatio: EXPORT_PIXEL_RATIO,
-    width: POSTER_WIDTH,
-    height: POSTER_HEIGHT,
+async function render(item: ExportItem): Promise<string> {
+  // Wait for every image inside the node so nothing renders half-loaded.
+  await Promise.all(
+    Array.from(item.node.querySelectorAll("img")).map((img) => (img.complete ? Promise.resolve() : img.decode().catch(() => undefined))),
+  );
+  return toPng(item.node, {
+    ...size(item),
     cacheBust: false,
-    // Ensure the clone keeps exact dimensions even if the live node is scaled via transform.
+    // The clone keeps exact dimensions even if the live node sits inside a scaled preview.
     style: { transform: "none", margin: "0" },
   });
 }
@@ -41,13 +55,18 @@ function triggerDownload(blob: Blob, filename: string) {
   setTimeout(() => URL.revokeObjectURL(url), 2000);
 }
 
-export async function downloadPosterPng(ref: PosterNodeRef) {
-  const png = await renderPoster(ref.node);
+function fileName(item: ExportItem) {
+  const code = LOCALE_MAP[item.locale].playStoreCode;
+  return item.kind === "poster" ? `poster_${code}_${item.index + 1}.png` : `feature-graphic_${code}.png`;
+}
+
+/** Downloads one poster or feature graphic as a PNG at store resolution. */
+export async function downloadPng(item: ExportItem) {
+  const png = await render(item);
   const bin = atob(dataUrlToBase64(png));
   const bytes = new Uint8Array(bin.length);
   for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
-  const code = LOCALE_MAP[ref.locale].playStoreCode;
-  triggerDownload(new Blob([bytes], { type: "image/png" }), `poster_${code}_${ref.index + 1}.png`);
+  triggerDownload(new Blob([bytes], { type: "image/png" }), fileName(item));
 }
 
 /**
@@ -55,14 +74,14 @@ export async function downloadPosterPng(ref: PosterNodeRef) {
  *   fastlane/metadata/android/<locale>/title.txt
  *   fastlane/metadata/android/<locale>/short_description.txt
  *   fastlane/metadata/android/<locale>/full_description.txt
- *   fastlane/metadata/android/<locale>/images/phoneScreenshots/<n>.png
+ *   fastlane/metadata/android/<locale>/images/featureGraphic.png      (1024x500)
+ *   fastlane/metadata/android/<locale>/images/phoneScreenshots/<n>.png (1080x1920)
  *
  * Fastlane `supply` sorts phoneScreenshots by file name, so posters are named 1.png, 2.png, …
- * Ready to run: fastlane supply --metadata_path fastlane/metadata/android --skip_upload_apk
  */
 export async function exportFastlaneZip(
   results: LocaleResult[],
-  posterRefs: PosterNodeRef[],
+  items: ExportItem[],
   onProgress?: (done: number, total: number) => void,
 ) {
   const zip = new JSZip();
@@ -79,13 +98,14 @@ export async function exportFastlaneZip(
     if (r.metadata.keywords.length) dir.file("keywords.txt", r.metadata.keywords.join(", "));
   }
 
-  const total = posterRefs.length;
+  const total = items.length;
   let done = 0;
   onProgress?.(0, total);
-  for (const ref of posterRefs) {
-    const png = await renderPoster(ref.node);
-    const code = LOCALE_MAP[ref.locale].playStoreCode;
-    root.file(`${code}/images/phoneScreenshots/${ref.index + 1}.png`, dataUrlToBase64(png), { base64: true });
+  for (const item of items) {
+    const png = await render(item);
+    const code = LOCALE_MAP[item.locale].playStoreCode;
+    const path = item.kind === "poster" ? `${code}/images/phoneScreenshots/${item.index + 1}.png` : `${code}/images/featureGraphic.png`;
+    root.file(path, dataUrlToBase64(png), { base64: true });
     done += 1;
     onProgress?.(done, total);
   }
@@ -118,6 +138,7 @@ export async function exportFastlaneZip(
       "fastlane/metadata/android/<locale>/title.txt",
       "fastlane/metadata/android/<locale>/short_description.txt",
       "fastlane/metadata/android/<locale>/full_description.txt",
+      "fastlane/metadata/android/<locale>/images/featureGraphic.png (1024x500)",
       "fastlane/metadata/android/<locale>/images/phoneScreenshots/1.png (1080x1920)",
       "```",
       "",

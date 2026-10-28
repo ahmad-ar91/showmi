@@ -92,7 +92,7 @@ export function StoreSimulator({ analysis, result, screenshots, appName, descrip
   const query = analysis?.app.genre ? analysis.app.genre.toLowerCase() : appName || "your app";
 
   return (
-    <div className="flex h-full min-h-0 flex-col gap-4">
+    <div className="flex flex-col gap-4 lg:h-full lg:min-h-0">
       <Card>
         <CardHeader
           title="Play Store preview"
@@ -125,18 +125,18 @@ export function StoreSimulator({ analysis, result, screenshots, appName, descrip
         />
       </Card>
 
-      <div className="min-h-0 flex-1 overflow-y-auto pb-2">
+      <div className="pb-2 lg:min-h-0 lg:flex-1 lg:overflow-y-auto">
         {!analysis && !result ? (
-          <Card className="h-full">
+          <Card className="min-h-[50vh] lg:h-full">
             <EmptyState title="Nothing to preview yet">
               Run an audit or generate a listing first. Both versions of your listing then appear side by side here.
             </EmptyState>
           </Card>
         ) : (
-          <div className="mx-auto max-w-5xl rounded-2xl bg-[#f8f9fa] p-5 text-[#1f1f1f] shadow-card ring-1 ring-line">
-            <div className="mb-5 flex items-center gap-3 rounded-full bg-white px-5 py-2.5 ring-1 ring-[#dadce0]">
+          <div className="mx-auto max-w-5xl rounded-2xl bg-[#f8f9fa] p-3 text-[#1f1f1f] shadow-card ring-1 ring-line sm:p-5">
+            <div className="mb-5 flex items-center gap-3 rounded-full bg-white px-4 py-2.5 ring-1 ring-[#dadce0] sm:px-5">
               <span className="text-sm text-[#444746]">{query}</span>
-              <span className="ml-auto text-xs text-[#747775]">Google Play, simulated</span>
+              <span className="ml-auto hidden text-xs text-[#747775] sm:inline">Google Play, simulated</span>
             </div>
 
             <div className="grid gap-4 md:grid-cols-3">

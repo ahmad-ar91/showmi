@@ -7,7 +7,7 @@ Audit a Google Play listing (optionally against a competitor), fix its weaknesse
 | Tab | What it does |
 | --- | --- |
 | **1 · ASO Intelligence & Audit** | Pulls live listings with `google-play-scraper`, scores 5 metrics on a `recharts` radar (ASO Health 0–100), tears down screenshots with SAM 3.1 (detections, clutter score, focal-point heatmap, Muse critique) and lists missing keywords: the gap against a competitor if you add one, otherwise high-intent terms for your category. **Fix and localize** hands everything to Tab 2. |
-| **2 · Localization Studio** | Pick any number of 65 Google Play markets (searchable, grouped by region), interactive SAM segment picker → floating 3D badges on 9:16 posters, Muse Spark copy with missing keywords injected, Muse Image cultural backgrounds, Play Console limits enforced. |
+| **2 · Localization Studio** | Pick any number of 65 Google Play markets (searchable, grouped by region), interactive SAM segment picker → floating 3D badges on 9:16 posters, Muse Spark copy with missing keywords injected, Muse Image cultural backgrounds, a 1024×500 feature graphic per market with optional wide Muse Image art, Play Console limits enforced. A full-width review area shows one market at a time (posters in three sizes, full-screen review, feature graphic, listing text). |
 | **3 · Store Simulator & Export** | Google Play search mock-up: your listing before vs after, next to the competitor, plus one-click Fastlane ZIP. |
 
 Press **Try the demo with sample apps** on Tab 1 for a one-click judge demo. It audits Ritmova against Paceto, two fictional apps with original copy and generated screenshots, so it works offline and uses no third-party brands.
@@ -73,6 +73,7 @@ src/
     api/generate-aso/route.ts    # POST: localization pipeline; GET: provider status
     api/segment/route.ts         # POST: candidate UI regions for the Segment Picker
     api/analyze-aso/route.ts     # POST: scrape Play listings + SAM/Muse audit
+    api/feature-graphic/route.ts # POST: wide Muse Image art for feature graphics
   lib/
     meta-ai.ts                   # Orchestrator (segmentation, copy, backgrounds) over the provider interfaces
     aso-analytics.ts             # ASO audit: metrics, visual teardown, keyword gap, compliance
@@ -91,9 +92,11 @@ src/
     StoreSimulator.tsx           # Tab 3 Play Store mock-up + export
     workspace/InputPanel.tsx     # Upload 1–3 screenshots, app brief, target markets
     workspace/SegmentPicker.tsx  # Interactive SAM 3.1 overlay: click regions to float them as 3D badges
-    workspace/PosterStudio.tsx   # Layout presets (Classic / Tilt / Offset), text position, export
+    workspace/PosterStudio.tsx   # Review area: posters, feature graphic, listing text; off-screen export render
+    workspace/FeatureGraphic.tsx # 1024x500 Play Store feature graphic
+    workspace/Lightbox.tsx       # Full-screen artwork review
     workspace/PosterCanvas.tsx   # 9:16 poster: background, localized copy, phone mockup, floating UI cards
-    workspace/MetadataInspector.tsx  # Editable Title/Short/Full with live counters + Copy
+    workspace/MetadataInspector.tsx  # ListingEditor: title, short and full description with counters
     ui/                          # Standard components (see "Design system" below)
     brand-mark.tsx               # ShowMi monogram and "by viralonme" lockup
 ```
@@ -133,6 +136,10 @@ Returns `{ mode, segments[][], locales[], warnings[], generatedAt }` where each 
 - **Interactive SAM 3.1 Segment Picker** — every upload is segmented immediately; detected UI regions are drawn as clickable bounding boxes. Pick up to 3 per screenshot and they peel off the phone as floating 3D badges on every locale's poster (live-updating, no regenerate needed).
 - **1-Click Fastlane ZIP Exporter** — one button renders every poster at 1080×1920 and writes the standard Fastlane `supply` tree, ready for `fastlane supply` straight into Google Play Console.
 
+## Layout
+
+The left sidebar collapses to a narrow rail (the choice is remembered per browser). Below 1024 px wide the sidebar becomes a top bar with the three steps as tabs, and every screen stacks into one scrolling column for phones.
+
 ## Export format
 
 ```
@@ -141,6 +148,7 @@ fastlane/metadata/android/<locale>/
   short_description.txt
   full_description.txt
   keywords.txt
+  images/featureGraphic.png                  (1024×500)
   images/phoneScreenshots/1.png, 2.png …     (1080×1920)
 showmi-manifest.json
 README.md

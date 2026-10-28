@@ -92,7 +92,7 @@ export function InputPanel({
   const full = screenshots.length >= MAX_SCREENSHOTS;
 
   return (
-    <Card className="h-full">
+    <Card className="lg:h-full">
       <CardHeader title="Brief" description="What the posters and listing text are built from." />
       <CardBody scroll className="space-y-6">
         {/* Screenshots */}

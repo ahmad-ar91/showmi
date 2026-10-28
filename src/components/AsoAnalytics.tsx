@@ -79,7 +79,7 @@ export function AsoAnalytics({ analysis, loading, error, onAnalyze, onFixAndLoca
   };
 
   return (
-    <div className="flex h-full min-h-0 flex-col gap-4">
+    <div className="flex flex-col gap-4 lg:h-full lg:min-h-0">
       <Card>
         <CardHeader
           title="Audit your listing"
@@ -136,7 +136,7 @@ export function AsoAnalytics({ analysis, loading, error, onAnalyze, onFixAndLoca
       )}
 
       {analysis && !loading && (
-        <div className="min-h-0 flex-1 space-y-4 overflow-y-auto pb-2 pr-1">
+        <div className="space-y-4 pb-2 lg:min-h-0 lg:flex-1 lg:overflow-y-auto lg:pr-1">
           {analysis.warnings.length > 0 && (
             <Notice tone="warn" title="Part of this audit used simulated output">
               <ul className="list-disc space-y-0.5 pl-4">
@@ -150,12 +150,12 @@ export function AsoAnalytics({ analysis, loading, error, onAnalyze, onFixAndLoca
           {/* Verdict */}
           <Card>
             <div className="grid lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)]">
-              <div className="flex flex-col gap-6 p-6">
-                <div className="flex items-center gap-5">
+              <div className="flex min-w-0 flex-col gap-6 p-5 sm:p-6">
+                <div className="flex flex-col items-start gap-4 sm:flex-row sm:items-center sm:gap-5">
                   <ScoreDial score={analysis.healthScore} label={`ASO health ${analysis.healthScore} of 100`} />
-                  <div className="min-w-0">
+                  <div className="w-full min-w-0">
                     <p className="text-xs text-muted">ASO health, out of 100</p>
-                    <h3 className="mt-1 font-display text-[26px] leading-[1.15]">{verdictLine(analysis.healthScore)}</h3>
+                    <h3 className="mt-1 font-display text-[22px] leading-[1.15] sm:text-[26px]">{verdictLine(analysis.healthScore)}</h3>
                   </div>
                 </div>
                 <p className="text-[13px] leading-relaxed text-muted">
@@ -184,7 +184,7 @@ export function AsoAnalytics({ analysis, loading, error, onAnalyze, onFixAndLoca
                   ))}
                 </dl>
               </div>
-              <div className="flex flex-col border-t border-line lg:border-l lg:border-t-0">
+              <div className="flex min-w-0 flex-col border-t border-line lg:border-l lg:border-t-0">
                 <div className="h-[230px] px-2 pt-3">
                   <ResponsiveContainer width="100%" height="100%">
                     <RadarChart data={METRICS.map((m) => ({ metric: m.label, score: analysis.metrics[m.key] }))} outerRadius="68%">
@@ -195,7 +195,7 @@ export function AsoAnalytics({ analysis, loading, error, onAnalyze, onFixAndLoca
                     </RadarChart>
                   </ResponsiveContainer>
                 </div>
-                <ul className="grid grid-cols-1 gap-x-6 px-6 pb-5 sm:grid-cols-2">
+                <ul className="grid grid-cols-1 gap-x-6 px-5 pb-5 sm:grid-cols-2 sm:px-6">
                   {METRICS.map((m) => (
                     <li key={m.key} className="flex items-center justify-between gap-3 border-t border-line py-2 text-[13px]">
                       <span>
@@ -296,7 +296,7 @@ export function AsoAnalytics({ analysis, loading, error, onAnalyze, onFixAndLoca
 
 function AppName({ listing }: { listing: NonNullable<AsoAnalysis["competitor"]> }) {
   return (
-    <span className="inline-flex items-baseline gap-1.5 whitespace-nowrap">
+    <span className="inline-flex flex-wrap items-baseline gap-x-1.5">
       {/* eslint-disable-next-line @next/next/no-img-element */}
       {listing.icon && <img src={listing.icon} alt="" className="h-4 w-4 translate-y-[3px] rounded" />}
       <span className="font-medium text-ink">{listing.title}</span>
@@ -319,8 +319,8 @@ function FindingGroup({ title, items, tone }: { title: string; items: string[]; 
 function TeardownCard({ audit, weak }: { audit: VisualAudit; weak: boolean }) {
   const [showHeat, setShowHeat] = useState(true);
   return (
-    <div className="flex gap-5 rounded-lg bg-sunken p-4">
-      <div className="relative w-[140px] shrink-0 overflow-hidden rounded-md bg-ink/90" style={{ aspectRatio: "9 / 16" }}>
+    <div className="flex flex-col gap-4 rounded-lg bg-sunken p-4 sm:flex-row sm:gap-5">
+      <div className="relative mx-auto w-[160px] shrink-0 overflow-hidden rounded-md bg-ink/90 sm:mx-0 sm:w-[140px]" style={{ aspectRatio: "9 / 16" }}>
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src={audit.screenshotDataUrl || audit.screenshotUrl} alt={`Screenshot ${audit.index + 1}`} className="h-full w-full object-cover" />
         {showHeat && (

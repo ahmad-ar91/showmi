@@ -162,12 +162,40 @@ export async function generateBackground(params: { locale: LocaleCode; descripti
   return provider.generateImage({ prompt, aspect: "9:16", hint: params.locale });
 }
 
+/** Wide art for the Google Play feature graphic: calm on one side for copy, space for a phone on the other. */
+export async function generateFeatureArt(params: { locale: LocaleCode; description: string }): Promise<string> {
+  const provider = getImageProvider();
+  if (provider.name === "mock") return mockBackground(params.locale);
+  const loc = LOCALE_MAP[params.locale];
+  const side = loc.rtl ? "right" : "left";
+  const prompt = `Wide 2:1 banner background for a mobile app store feature graphic (${params.description.slice(0, 120)}). Rich gradient with a subtle cultural motif inspired by ${loc.label}. Keep the ${side} half calm and darker for headline text, lighter open space on the other side for a phone mockup. No text, no letters, no people, no logos, no devices.`;
+  return provider.generateImage({ prompt, aspect: "16:9", hint: params.locale });
+}
+
+/** Generates feature graphic art for several markets, falling back to the simulated art per market. */
+export async function generateFeatureArtFor(
+  locales: LocaleCode[],
+  description: string,
+): Promise<{ art: Record<LocaleCode, string>; warnings: string[]; mode: "mock" | "live" }> {
+  const provider = getImageProvider();
+  const warnings: string[] = [];
+  const entries = await mapLimit(locales, Number(process.env.AI_CONCURRENCY) || 4, async (locale) => {
+    try {
+      return [locale, await generateFeatureArt({ locale, description })] as const;
+    } catch (err) {
+      warnings.push(`${provider.model} (${locale}): ${(err as Error).message} (used simulated art)`);
+      return [locale, mockBackground(locale)] as const;
+    }
+  });
+  return { art: Object.fromEntries(entries), warnings, mode: provider.name === "mock" ? "mock" : "live" };
+}
+
 /* -------------------------------------------------------------------------- */
 /*  Orchestrator                                                               */
 /* -------------------------------------------------------------------------- */
 
 /** Like Promise.all over items.map(fn), but with at most `limit` calls in flight. Keeps order. */
-async function mapLimit<T, R>(items: T[], limit: number, fn: (item: T, index: number) => Promise<R>): Promise<R[]> {
+export async function mapLimit<T, R>(items: T[], limit: number, fn: (item: T, index: number) => Promise<R>): Promise<R[]> {
   const out = new Array<R>(items.length);
   let next = 0;
   const workers = Array.from({ length: Math.max(1, Math.min(limit, items.length)) }, async () => {

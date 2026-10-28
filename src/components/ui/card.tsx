@@ -25,7 +25,7 @@ export interface CardHeaderProps {
 /** Title, one line of context and optional actions. No icon slot by design. */
 export function CardHeader({ title, description, actions, className }: CardHeaderProps) {
   return (
-    <header className={cn("flex flex-wrap items-start justify-between gap-x-4 gap-y-3 px-5 pb-3 pt-5", className)}>
+    <header className={cn("flex flex-col gap-3 px-5 pb-3 pt-5 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between sm:gap-x-4", className)}>
       <div className="min-w-0 flex-1">
         <h2 className="font-display text-lg leading-snug text-ink">{title}</h2>
         {description && <p className="mt-0.5 max-w-prose text-[13px] leading-relaxed text-muted">{description}</p>}

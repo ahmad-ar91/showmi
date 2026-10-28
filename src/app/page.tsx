@@ -1,8 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { AsoAnalytics } from "@/components/AsoAnalytics";
-import { BrandLockup } from "@/components/brand-mark";
+import { BrandLockup, BrandMark } from "@/components/brand-mark";
+import { TextButton } from "@/components/ui";
 import { BRAND } from "@/lib/brand";
 import { LocalizationStudio, type StudioHandoff } from "@/components/LocalizationStudio";
 import { StoreSimulator } from "@/components/StoreSimulator";
@@ -24,11 +25,46 @@ import { cn } from "@/lib/utils";
 
 type Tab = "analytics" | "studio" | "simulator";
 
-const TABS: { id: Tab; label: string; hint: string; step: string }[] = [
-  { id: "analytics", label: "Audit the listing", hint: "Score it and find gaps", step: "1" },
-  { id: "studio", label: "Localize and fix", hint: "Copy, posters, badges", step: "2" },
-  { id: "simulator", label: "Preview and export", hint: "Store preview and ZIP", step: "3" },
+const TABS: { id: Tab; label: string; short: string; hint: string; step: string }[] = [
+  { id: "analytics", label: "Audit the listing", short: "Audit", hint: "Score it and find gaps", step: "1" },
+  { id: "studio", label: "Localize and fix", short: "Localize", hint: "Copy, posters, badges", step: "2" },
+  { id: "simulator", label: "Preview and export", short: "Export", hint: "Store preview and ZIP", step: "3" },
 ];
+
+/* Sidebar collapse is a per-browser preference, kept in localStorage when available. */
+const RAIL_KEY = "showmi.sidebar.collapsed";
+const railListeners = new Set<() => void>();
+let memoryRail: boolean | null = null;
+function readRail(): boolean {
+  if (memoryRail !== null) return memoryRail;
+  try {
+    return window.localStorage.getItem(RAIL_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+function writeRail(collapsed: boolean) {
+  memoryRail = collapsed;
+  try {
+    window.localStorage.setItem(RAIL_KEY, collapsed ? "1" : "0");
+  } catch {
+    /* storage blocked: the toggle still works for this page view */
+  }
+  railListeners.forEach((l) => l());
+}
+function useRailCollapsed(): [boolean, (v: boolean) => void] {
+  const value = useSyncExternalStore(
+    (cb) => {
+      railListeners.add(cb);
+      return () => {
+        railListeners.delete(cb);
+      };
+    },
+    readRail,
+    () => false,
+  );
+  return [value, writeRail];
+}
 
 interface ProviderStatus {
   mode?: "mock" | "live";
@@ -58,6 +94,10 @@ export default function WorkspacePage() {
   const [status, setStatus] = useState<ProviderStatus>({});
   const [layout, setLayout] = useState<LayoutStyle>("classic");
   const [textPosition, setTextPosition] = useState<TextPosition>("top");
+  const [featureArt, setFeatureArt] = useState<Record<string, string>>({});
+  const [featureLoading, setFeatureLoading] = useState(false);
+  const [featureError, setFeatureError] = useState<string | null>(null);
+  const [railCollapsed, setRailCollapsed] = useRailCollapsed();
 
   /* ----------------------------- Tab 3 state ----------------------------- */
   const exportFn = useRef<(() => Promise<void>) | null>(null);
@@ -178,6 +218,8 @@ export default function WorkspacePage() {
       const data = (await res.json()) as GenerateAsoResponse | { error: string };
       if (!res.ok || "error" in data) throw new Error("error" in data ? data.error : `HTTP ${res.status}`);
       setResult(data);
+      setFeatureArt({});
+      setFeatureError(null);
     } catch (err) {
       setError((err as Error).message);
     } finally {
@@ -258,14 +300,34 @@ export default function WorkspacePage() {
     });
   };
 
+  /** Wide Muse Image art for the feature graphic of every generated market. */
+  const handleGenerateFeatureArt = async () => {
+    if (!result) return;
+    setFeatureLoading(true);
+    setFeatureError(null);
+    try {
+      const res = await fetch("/api/feature-graphic", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ locales: result.locales.map((l) => l.locale), description: description.trim() }),
+      });
+      const data = (await res.json()) as { art: Record<string, string>; warnings: string[] } | { error: string };
+      if (!res.ok || "error" in data) throw new Error("error" in data ? data.error : `HTTP ${res.status}`);
+      setFeatureArt(data.art);
+      if (data.warnings.length) setFeatureError(data.warnings.join(" "));
+    } catch (err) {
+      setFeatureError((err as Error).message);
+    } finally {
+      setFeatureLoading(false);
+    }
+  };
+
   /* ------------------------------- Tab 3 ------------------------------- */
 
-  /** The poster DOM lives in Tab 2, so switch there, let it paint, then render + zip. */
+  /** Exports render off screen, so the preview can export without switching tabs. */
   const handleExportFromSimulator = async () => {
     if (!exportFn.current) return;
     setExporting(true);
-    setTab("studio");
-    await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
     try {
       await exportFn.current();
     } finally {
@@ -276,17 +338,39 @@ export default function WorkspacePage() {
   /* --------------------------------- UI --------------------------------- */
 
   const stepDone: Record<Tab, boolean> = { analytics: !!analysis, studio: !!result, simulator: false };
+  const modeLabel = mode === "live" ? "Live models" : mode === "mock" ? "Simulated models" : "Checking models";
+  const modeDot = mode === "live" ? "bg-ok" : mode === "mock" ? "bg-warn" : "bg-faint";
+
+  const stepBadge = (t: (typeof TABS)[number], active: boolean) => (
+    <span
+      className={cn(
+        "flex h-5 w-5 shrink-0 items-center justify-center rounded-full font-mono text-[11px] transition-colors",
+        stepDone[t.id] ? "bg-ok text-white" : active ? "bg-ink text-paper" : "text-muted ring-1 ring-inset ring-line-strong",
+      )}
+    >
+      {stepDone[t.id] ? "✓" : t.step}
+    </span>
+  );
 
   return (
-    <main className="grid h-screen grid-cols-1 overflow-hidden lg:grid-cols-[256px_minmax(0,1fr)]">
-      {/* Left rail: brand, the three-step sequence, provider status */}
-      <aside className="flex flex-col border-b border-line bg-panel lg:border-b-0 lg:border-r">
-        <div className="px-5 pb-5 pt-6">
-          <h1 className="sr-only">{BRAND.name}</h1>
-          <BrandLockup />
-        </div>
+    <main
+      className={cn(
+        "min-h-screen lg:grid lg:h-screen lg:overflow-hidden lg:transition-[grid-template-columns] lg:duration-200",
+        railCollapsed ? "lg:grid-cols-[76px_minmax(0,1fr)]" : "lg:grid-cols-[256px_minmax(0,1fr)]",
+      )}
+    >
+      <h1 className="sr-only">{BRAND.name}</h1>
 
-        <nav className="flex gap-1 overflow-x-auto px-3 lg:flex-col lg:gap-0.5" aria-label="Workflow steps">
+      {/* Phone and tablet: compact header with the steps as tabs */}
+      <header className="sticky top-0 z-30 border-b border-line bg-panel/95 backdrop-blur lg:hidden">
+        <div className="flex items-center justify-between gap-3 px-4 pb-2 pt-3">
+          <BrandLockup size={30} />
+          <span className="flex items-center gap-1.5 text-xs text-muted">
+            <span className={cn("h-2 w-2 rounded-full", modeDot)} />
+            {mode === "live" ? "Live" : mode === "mock" ? "Simulated" : ""}
+          </span>
+        </div>
+        <nav className="grid grid-cols-3 gap-1 px-2 pb-2" aria-label="Workflow steps">
           {TABS.map((t) => {
             const active = tab === t.id;
             return (
@@ -296,60 +380,104 @@ export default function WorkspacePage() {
                 onClick={() => setTab(t.id)}
                 aria-current={active ? "step" : undefined}
                 className={cn(
-                  "flex min-w-[190px] items-start gap-3 rounded-lg px-3 py-2.5 text-left transition-colors lg:min-w-0",
+                  "flex min-w-0 items-center justify-center gap-1.5 rounded-lg px-2 py-2 text-[13px] transition-colors",
+                  active ? "bg-sunken font-medium text-ink" : "text-muted",
+                )}
+              >
+                {stepBadge(t, active)}
+                <span className="truncate">{t.short}</span>
+              </button>
+            );
+          })}
+        </nav>
+      </header>
+
+      {/* Desktop: left rail, collapsible */}
+      <aside className="hidden min-h-0 flex-col overflow-hidden border-r border-line bg-panel lg:flex">
+        <div className={cn("pb-5 pt-6", railCollapsed ? "flex justify-center px-2" : "px-5")}>
+          {railCollapsed ? (
+            <button type="button" onClick={() => setRailCollapsed(false)} aria-label="Expand sidebar" title="Expand sidebar">
+              <BrandMark size={34} />
+            </button>
+          ) : (
+            <BrandLockup />
+          )}
+        </div>
+
+        <nav className={cn("flex flex-col gap-0.5", railCollapsed ? "items-center px-2" : "px-3")} aria-label="Workflow steps">
+          {TABS.map((t) => {
+            const active = tab === t.id;
+            return (
+              <button
+                key={t.id}
+                type="button"
+                onClick={() => setTab(t.id)}
+                aria-current={active ? "step" : undefined}
+                title={railCollapsed ? t.label : undefined}
+                className={cn(
+                  "flex items-start gap-3 rounded-lg text-left transition-colors",
+                  railCollapsed ? "justify-center p-2.5" : "w-full px-3 py-2.5",
                   active ? "bg-sunken text-ink" : "text-muted hover:bg-sunken/60 hover:text-ink",
                 )}
               >
-                <span
-                  className={cn(
-                    "mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full font-mono text-[11px] transition-colors",
-                    stepDone[t.id]
-                      ? "bg-ok text-white"
-                      : active
-                        ? "bg-ink text-paper"
-                        : "text-muted ring-1 ring-inset ring-line-strong",
-                  )}
-                >
-                  {stepDone[t.id] ? "✓" : t.step}
-                </span>
-                <span>
-                  <span className="block text-sm font-medium">{t.label}</span>
-                  <span className="block text-xs text-muted">{t.hint}</span>
-                </span>
+                <span className={railCollapsed ? "" : "mt-0.5"}>{stepBadge(t, active)}</span>
+                {railCollapsed ? (
+                  <span className="sr-only">{t.label}</span>
+                ) : (
+                  <span className="min-w-0">
+                    <span className="block whitespace-nowrap text-sm font-medium">{t.label}</span>
+                    <span className="block whitespace-nowrap text-xs text-muted">{t.hint}</span>
+                  </span>
+                )}
               </button>
             );
           })}
         </nav>
 
-        <div className="mt-auto flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-line px-5 py-3 text-xs lg:block lg:space-y-2 lg:py-4">
-          <p className="flex items-center gap-2">
-            <span className={cn("h-2 w-2 rounded-full", mode === "live" ? "bg-ok" : mode === "mock" ? "bg-warn" : "bg-faint")} />
-            <span className="text-ink">
-              {mode === "live" ? "Live models" : mode === "mock" ? "Simulated models" : "Checking models"}
-            </span>
-          </p>
-          {mode === "live" && (
-            <dl className="hidden grid-cols-[auto_1fr] gap-x-3 gap-y-0.5 font-mono text-[11px] text-muted lg:grid">
-              <dt>text</dt>
-              <dd className="truncate">{status.text?.model}</dd>
-              <dt>image</dt>
-              <dd className="truncate">{status.image?.model}</dd>
-              <dt>segment</dt>
-              <dd className="truncate">{status.segment?.model}</dd>
-            </dl>
+        <div className={cn("mt-auto space-y-2 border-t border-line py-4 text-xs", railCollapsed ? "px-2 text-center" : "px-5")}>
+          {railCollapsed ? (
+            <>
+              <span className={cn("mx-auto block h-2 w-2 rounded-full", modeDot)} title={modeLabel} />
+              <TextButton className="text-xs" onClick={() => setRailCollapsed(false)}>
+                Expand
+              </TextButton>
+            </>
+          ) : (
+            <>
+              <p className="flex items-center gap-2">
+                <span className={cn("h-2 w-2 rounded-full", modeDot)} />
+                <span className="text-ink">{modeLabel}</span>
+              </p>
+              {mode === "live" && (
+                <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5 font-mono text-[11px] text-muted">
+                  <dt>text</dt>
+                  <dd className="truncate">{status.text?.model}</dd>
+                  <dt>image</dt>
+                  <dd className="truncate">{status.image?.model}</dd>
+                  <dt>segment</dt>
+                  <dd className="truncate">{status.segment?.model}</dd>
+                </dl>
+              )}
+              {result && (
+                <p className="text-muted">
+                  {result.locales.length} market{result.locales.length === 1 ? "" : "s"} ready to export
+                </p>
+              )}
+              {error && <p className="text-bad">{error}</p>}
+              <div className="flex items-center justify-between gap-2 pt-1">
+                <span className="text-faint">Built for the Meta hackathon</span>
+                <TextButton className="text-xs" onClick={() => setRailCollapsed(true)}>
+                  Collapse
+                </TextButton>
+              </div>
+            </>
           )}
-          {result && (
-            <p className="text-muted">
-              {result.locales.length} market{result.locales.length === 1 ? "" : "s"} ready to export
-            </p>
-          )}
-          {error && <p className="text-bad">{error}</p>}
-          <p className="pt-1 text-faint">Built for the Meta hackathon</p>
         </div>
       </aside>
 
-      <div className="min-h-0 overflow-hidden p-4 lg:p-5">
-        <div className={cn("h-full min-h-0", tab === "analytics" ? "tab-enter" : "hidden")}>
+      <div className="p-3 sm:p-4 lg:min-h-0 lg:overflow-hidden lg:p-5">
+        {error && <p className="mb-3 rounded-lg bg-bad-soft px-3 py-2 text-[13px] text-bad lg:hidden">{error}</p>}
+        <div className={cn("lg:h-full lg:min-h-0", tab === "analytics" ? "tab-enter" : "hidden")}>
           <AsoAnalytics
             analysis={analysis}
             loading={analyzing}
@@ -358,7 +486,7 @@ export default function WorkspacePage() {
             onFixAndLocalize={handleFixAndLocalize}
           />
         </div>
-        <div className={cn("h-full min-h-0", tab === "studio" ? "tab-enter" : "hidden")}>
+        <div className={cn("lg:h-full lg:min-h-0", tab === "studio" ? "tab-enter" : "hidden")}>
           <LocalizationStudio
             handoff={handoff}
             onClearHandoff={() => setHandoff(null)}
@@ -381,10 +509,14 @@ export default function WorkspacePage() {
             textPosition={textPosition}
             onTextPositionChange={setTextPosition}
             onMetadataChange={handleMetadataChange}
+            featureArt={featureArt}
+            featureLoading={featureLoading}
+            featureError={featureError}
+            onGenerateFeatureArt={handleGenerateFeatureArt}
             onRegisterExport={registerExport}
           />
         </div>
-        <div className={cn("h-full min-h-0", tab === "simulator" ? "tab-enter" : "hidden")}>
+        <div className={cn("lg:h-full lg:min-h-0", tab === "simulator" ? "tab-enter" : "hidden")}>
           <StoreSimulator
             analysis={analysis}
             result={result}

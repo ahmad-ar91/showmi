@@ -2,7 +2,6 @@
 
 import { InputPanel } from "@/components/workspace/InputPanel";
 import { PosterStudio } from "@/components/workspace/PosterStudio";
-import { MetadataInspector } from "@/components/workspace/MetadataInspector";
 import type { ShotSegmentation } from "@/components/workspace/SegmentPicker";
 import { Notice, Tag, TextButton } from "@/components/ui";
 import type { UploadedScreenshot } from "@/lib/image";
@@ -38,17 +37,22 @@ export interface LocalizationStudioProps {
   textPosition: TextPosition;
   onTextPositionChange: (p: TextPosition) => void;
   onMetadataChange: (locale: LocaleCode, field: keyof PlayStoreMetadata, value: string) => void;
+  featureArt: Record<string, string>;
+  featureLoading: boolean;
+  featureError: string | null;
+  onGenerateFeatureArt: () => void;
   onRegisterExport: (fn: (() => Promise<void>) | null) => void;
 }
 
 /**
- * Step 2: brief, posters and listing text side by side. A hand-off from the audit injects
- * the missing keywords and weaknesses into the copy prompt and pre-loads the weakest screenshots.
+ * Step 2: the brief on the left, the review area on the right. A hand-off from the audit
+ * injects the missing keywords and weaknesses into the copy prompt and pre-loads the weakest
+ * screenshots.
  */
 export function LocalizationStudio(p: LocalizationStudioProps) {
   const weaknessCount = p.handoff?.weaknesses.length ?? 0;
   return (
-    <div className="flex h-full min-h-0 flex-col gap-4">
+    <div className="flex flex-col gap-4 lg:h-full lg:min-h-0">
       {p.handoff && (
         <Notice
           tone="info"
@@ -73,8 +77,8 @@ export function LocalizationStudio(p: LocalizationStudioProps) {
         </Notice>
       )}
 
-      <div className="grid min-h-0 flex-1 grid-cols-1 gap-4 overflow-y-auto lg:grid-cols-[340px_minmax(0,1fr)_360px] lg:overflow-hidden xl:grid-cols-[360px_minmax(0,1fr)_400px]">
-        <div className="min-h-[560px] lg:min-h-0">
+      <div className="grid grid-cols-1 gap-4 lg:min-h-0 lg:flex-1 lg:grid-cols-[minmax(300px,340px)_minmax(0,1fr)] xl:grid-cols-[360px_minmax(0,1fr)]">
+        <div className="lg:min-h-0">
           <InputPanel
             screenshots={p.screenshots}
             onScreenshotsChange={p.onScreenshotsChange}
@@ -91,20 +95,23 @@ export function LocalizationStudio(p: LocalizationStudioProps) {
             mode={p.mode}
           />
         </div>
-        <div className="min-h-[720px] lg:min-h-0">
+        <div className="lg:min-h-0">
           <PosterStudio
             result={p.result}
             screenshots={p.screenshots}
             loading={p.loading}
+            appName={p.appName}
             layout={p.layout}
             onLayoutChange={p.onLayoutChange}
             textPosition={p.textPosition}
             onTextPositionChange={p.onTextPositionChange}
+            onMetadataChange={p.onMetadataChange}
+            featureArt={p.featureArt}
+            featureLoading={p.featureLoading}
+            featureError={p.featureError}
+            onGenerateFeatureArt={p.onGenerateFeatureArt}
             onRegisterExport={p.onRegisterExport}
           />
-        </div>
-        <div className="min-h-[560px] lg:min-h-0">
-          <MetadataInspector results={p.result?.locales ?? null} onMetadataChange={p.onMetadataChange} />
         </div>
       </div>
     </div>

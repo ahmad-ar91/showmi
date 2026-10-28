@@ -1,8 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Globe2, Rocket } from "lucide-react";
 import { AsoAnalytics } from "@/components/AsoAnalytics";
+import { BrandMark } from "@/components/brand-mark";
+import { BRAND } from "@/lib/brand";
 import { LocalizationStudio, type StudioHandoff } from "@/components/LocalizationStudio";
 import { StoreSimulator } from "@/components/StoreSimulator";
 import { MAX_BADGES_PER_SHOT, type ShotSegmentation } from "@/components/workspace/SegmentPicker";
@@ -24,9 +25,9 @@ import { cn } from "@/lib/utils";
 type Tab = "analytics" | "studio" | "simulator";
 
 const TABS: { id: Tab; label: string; hint: string; step: string }[] = [
-  { id: "analytics", label: "Audit the listing", hint: "Score it, optionally vs a competitor", step: "1" },
+  { id: "analytics", label: "Audit the listing", hint: "Score it and find gaps", step: "1" },
   { id: "studio", label: "Localize and fix", hint: "Copy, posters, badges", step: "2" },
-  { id: "simulator", label: "Preview and export", hint: "Store mock-up, Fastlane ZIP", step: "3" },
+  { id: "simulator", label: "Preview and export", hint: "Store preview and ZIP", step: "3" },
 ];
 
 interface ProviderStatus {
@@ -277,16 +278,14 @@ export default function WorkspacePage() {
   const stepDone: Record<Tab, boolean> = { analytics: !!analysis, studio: !!result, simulator: false };
 
   return (
-    <main className="grid h-screen grid-cols-1 overflow-hidden lg:grid-cols-[232px_minmax(0,1fr)]">
+    <main className="grid h-screen grid-cols-1 overflow-hidden lg:grid-cols-[256px_minmax(0,1fr)]">
       {/* Left rail: brand, the three-step sequence, provider status */}
       <aside className="flex flex-col border-b border-line bg-panel lg:border-b-0 lg:border-r">
-        <div className="flex items-center gap-3 px-5 pb-4 pt-5">
-          <span className="flex h-8 w-8 items-center justify-center rounded-md bg-ink text-paper">
-            <Rocket size={15} />
-          </span>
+        <div className="flex items-center gap-3 px-5 pb-5 pt-6">
+          <BrandMark size={34} />
           <div>
-            <h1 className="font-display text-[22px] leading-none">LocaLaunch</h1>
-            <p className="mt-1 text-xs text-muted">ASO audit, localization, export</p>
+            <h1 className="font-display text-[22px] leading-none">{BRAND.name}</h1>
+            <p className="mt-1 text-xs text-muted">{BRAND.tagline}</p>
           </div>
         </div>
 
@@ -300,14 +299,18 @@ export default function WorkspacePage() {
                 onClick={() => setTab(t.id)}
                 aria-current={active ? "step" : undefined}
                 className={cn(
-                  "flex min-w-[180px] items-start gap-3 rounded-md px-3 py-2.5 text-left transition-colors lg:min-w-0",
+                  "flex min-w-[190px] items-start gap-3 rounded-lg px-3 py-2.5 text-left transition-colors lg:min-w-0",
                   active ? "bg-sunken text-ink" : "text-muted hover:bg-sunken/60 hover:text-ink",
                 )}
               >
                 <span
                   className={cn(
-                    "mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border font-mono text-[11px]",
-                    stepDone[t.id] ? "border-ok bg-ok text-panel" : active ? "border-ink text-ink" : "border-line-strong text-muted",
+                    "mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full font-mono text-[11px] transition-colors",
+                    stepDone[t.id]
+                      ? "bg-ok text-white"
+                      : active
+                        ? "bg-ink text-paper"
+                        : "text-muted ring-1 ring-inset ring-line-strong",
                   )}
                 >
                   {stepDone[t.id] ? "✓" : t.step}
@@ -339,8 +342,8 @@ export default function WorkspacePage() {
             </dl>
           )}
           {result && (
-            <p className="flex items-center gap-1.5 text-muted">
-              <Globe2 size={11} /> {result.locales.length} locale{result.locales.length === 1 ? "" : "s"} ready to export
+            <p className="text-muted">
+              {result.locales.length} market{result.locales.length === 1 ? "" : "s"} ready to export
             </p>
           )}
           {error && <p className="text-bad">{error}</p>}
@@ -348,7 +351,7 @@ export default function WorkspacePage() {
         </div>
       </aside>
 
-      <div className="min-h-0 overflow-hidden p-4">
+      <div className="min-h-0 overflow-hidden p-4 lg:p-5">
         <div className={cn("h-full min-h-0", tab === "analytics" ? "tab-enter" : "hidden")}>
           <AsoAnalytics
             analysis={analysis}

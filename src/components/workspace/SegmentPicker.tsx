@@ -1,7 +1,6 @@
 "use client";
 
-import { Check, Loader2, ScanSearch, X } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
+import { Spinner, Tag, TextButton } from "@/components/ui";
 import type { UploadedScreenshot } from "@/lib/image";
 import type { Segment } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -24,67 +23,51 @@ interface Props {
   onRemove: () => void;
 }
 
-const ACCENTS = ["#1f3fbf", "#1e7a4f", "#9a6a0f", "#b3261e"];
-
 /**
- * Interactive SAM 3.1 overlay: every detected UI region is drawn as a clickable
- * bounding box over the screenshot. Selected regions become floating 3D badges on the poster.
+ * Interactive SAM 3.1 overlay: every detected UI region is a clickable outline over the
+ * screenshot. Selected regions become floating badges on the poster.
  */
 export function SegmentPicker({ screenshot, index, state, onToggle, onRemove }: Props) {
   const selectedCount = state?.selected.length ?? 0;
   const full = selectedCount >= MAX_BADGES_PER_SHOT;
 
   return (
-    <div className="rounded-lg border border-line bg-sunken p-2">
-      <div className="mb-2 flex items-center justify-between px-1">
-        <div className="flex items-center gap-2">
-          <span className="rounded bg-sunken px-1.5 py-0.5 text-[10px] font-semibold">#{index + 1}</span>
-          <span className="max-w-[140px] truncate text-[11px] text-ink" title={screenshot.name}>
-            {screenshot.name}
-          </span>
-        </div>
-        <div className="flex items-center gap-1.5">
+    <div className="rounded-lg bg-sunken p-3">
+      <div className="mb-3 flex items-center justify-between gap-3">
+        <p className="min-w-0 truncate text-[13px] text-ink" title={screenshot.name}>
+          <span className="mr-1.5 font-mono text-xs text-muted">{index + 1}</span>
+          {screenshot.name}
+        </p>
+        <div className="flex shrink-0 items-center gap-3 text-xs">
           {state?.status === "detecting" && (
-            <Badge tone="accent">
-              <Loader2 size={10} className="animate-spin" /> SAM 3.1
-            </Badge>
+            <span className="flex items-center gap-1.5 text-muted">
+              <Spinner size="sm" /> Finding regions
+            </span>
           )}
           {state?.status === "ready" && (
-            <Badge tone={full ? "warning" : "success"}>
-              {selectedCount}/{MAX_BADGES_PER_SHOT} badges
-            </Badge>
+            <Tag tone={full ? "warn" : "neutral"}>
+              {selectedCount} of {MAX_BADGES_PER_SHOT} badges
+            </Tag>
           )}
-          {state?.status === "error" && <Badge tone="danger">detect failed</Badge>}
-          <button
-            type="button"
-            aria-label="Remove screenshot"
-            onClick={onRemove}
-            className="rounded-full p-1 text-muted hover:bg-sunken hover:text-panel"
-          >
-            <X size={12} />
-          </button>
+          {state?.status === "error" && <Tag tone="bad">Detection failed</Tag>}
+          <TextButton className="text-xs text-muted hover:text-bad" onClick={onRemove}>
+            Remove
+          </TextButton>
         </div>
       </div>
 
       <div
-        className="relative mx-auto overflow-hidden rounded-lg bg-black"
+        className="relative mx-auto overflow-hidden rounded-md bg-ink/90"
         style={{ aspectRatio: `${screenshot.width} / ${screenshot.height}`, maxHeight: 360 }}
       >
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src={screenshot.dataUrl} alt={screenshot.name} className="h-full w-full object-contain" />
 
-        {state?.status === "detecting" && (
-          <div className="absolute inset-0 flex items-center justify-center bg-black/50">
-            <div className="flex items-center gap-2 rounded-full bg-sunken/90 px-3 py-1.5 text-[11px] text-accent-ink">
-              <ScanSearch size={13} className="animate-pulse" /> Detecting UI elements…
-            </div>
-          </div>
-        )}
+        {state?.status === "detecting" && <div className="absolute inset-0 animate-pulse bg-panel/30" />}
 
         {state?.status === "ready" &&
-          state.segments.map((seg, i) => {
+          state.segments.map((seg) => {
             const on = state.selected.includes(seg.id);
-            const accent = ACCENTS[i % ACCENTS.length];
             const disabled = !on && full;
             return (
               <button
@@ -92,32 +75,25 @@ export function SegmentPicker({ screenshot, index, state, onToggle, onRemove }: 
                 type="button"
                 disabled={disabled}
                 onClick={() => onToggle(seg.id)}
-                title={`${seg.label} · ${(seg.score * 100).toFixed(0)}%`}
+                aria-pressed={on}
+                aria-label={`${on ? "Remove" : "Use"} ${seg.label} as a badge`}
                 className={cn(
-                  "group absolute rounded-md transition-all focus:outline-none",
-                  disabled ? "cursor-not-allowed opacity-40" : "cursor-pointer",
+                  "group absolute rounded-[5px] transition-[background-color,box-shadow,opacity] duration-150 focus-visible:outline-offset-0",
+                  on
+                    ? "bg-accent/15 shadow-[0_0_0_2px_var(--accent),0_0_0_4px_rgba(255,255,255,0.9)]"
+                    : "shadow-[0_0_0_1.5px_rgba(255,255,255,0.85),0_0_0_3px_rgba(23,25,30,0.35)] hover:bg-panel/15",
+                  disabled ? "cursor-not-allowed opacity-30" : "cursor-pointer",
                 )}
                 style={{
                   left: `${seg.bbox.x * 100}%`,
                   top: `${seg.bbox.y * 100}%`,
                   width: `${seg.bbox.w * 100}%`,
                   height: `${seg.bbox.h * 100}%`,
-                  border: `2px ${on ? "solid" : "dashed"} ${accent}`,
-                  background: on ? `${accent}33` : "transparent",
-                  boxShadow: on ? `0 0 0 2px #ffffff, 0 0 0 3px ${accent}` : "none",
                 }}
               >
-                <span
-                  className="absolute -top-2 left-1 flex items-center gap-1 rounded px-1.5 py-0.5 text-[9px] font-semibold leading-none text-white"
-                  style={{ background: accent }}
-                >
-                  {on && <Check size={9} strokeWidth={3} />}
-                  {seg.label}
-                  <span className="opacity-70">{(seg.score * 100).toFixed(0)}%</span>
-                </span>
-                {!on && !disabled && (
-                  <span className="absolute inset-0 hidden items-center justify-center text-[10px] font-medium text-panel group-hover:flex">
-                    <span className="rounded bg-ink/80 px-2 py-0.5">Make badge</span>
+                {on && (
+                  <span className="absolute -top-2.5 left-1.5 rounded bg-accent px-1.5 text-[10px] font-medium leading-4 text-white">
+                    Badge
                   </span>
                 )}
               </button>
@@ -126,12 +102,12 @@ export function SegmentPicker({ screenshot, index, state, onToggle, onRemove }: 
       </div>
 
       {state?.status === "ready" && (
-        <p className="mt-2 px-1 text-[10px] text-muted">
-          Click a detected region to float it out of the phone as a 3D badge
-          {state.mode === "mock" ? " (simulated regions)" : ""}.
+        <p className="mt-2.5 text-xs leading-relaxed text-muted">
+          Tap an outlined region to lift it off the phone as a badge
+          {state.mode === "mock" ? ". These regions are simulated." : "."}
         </p>
       )}
-      {state?.status === "error" && <p className="mt-2 px-1 text-[10px] text-bad">{state.error}</p>}
+      {state?.status === "error" && <p className="mt-2.5 text-xs text-bad">{state.error}</p>}
     </div>
   );
 }

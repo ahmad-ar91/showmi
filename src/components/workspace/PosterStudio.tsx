@@ -1,26 +1,12 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import {
-  AlignVerticalJustifyEnd,
-  AlignVerticalJustifyStart,
-  Download,
-  ImageIcon,
-  LayoutTemplate,
-  Loader2,
-  Package,
-  RotateCw,
-  SquareStack,
-} from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Panel, PanelBody, PanelHeader } from "@/components/ui/panel";
+import { Button, Card, CardHeader, EmptyState, Notice, SegmentedControl, Tag, TextButton, Working } from "@/components/ui";
 import { PosterCanvas } from "./PosterCanvas";
 import { LOCALE_MAP } from "@/lib/locales";
 import type { UploadedScreenshot } from "@/lib/image";
 import { downloadPosterPng, exportFastlaneZip, type PosterNodeRef } from "@/lib/export";
 import type { GenerateAsoResponse, LayoutStyle, TextPosition } from "@/lib/types";
-import { cn } from "@/lib/utils";
 
 interface Props {
   result: GenerateAsoResponse | null;
@@ -34,10 +20,15 @@ interface Props {
   onRegisterExport?: (fn: (() => Promise<void>) | null) => void;
 }
 
-const LAYOUTS: { id: LayoutStyle; label: string; icon: React.ReactNode }[] = [
-  { id: "classic", label: "Classic", icon: <LayoutTemplate size={14} /> },
-  { id: "tilt", label: "Tilt", icon: <RotateCw size={14} /> },
-  { id: "offset", label: "Offset", icon: <SquareStack size={14} /> },
+const LAYOUTS = [
+  { value: "classic" as const, label: "Classic" },
+  { value: "tilt" as const, label: "Tilt" },
+  { value: "offset" as const, label: "Offset" },
+];
+
+const POSITIONS = [
+  { value: "top" as const, label: "Text top" },
+  { value: "bottom" as const, label: "Text bottom" },
 ];
 
 export function PosterStudio({
@@ -112,113 +103,67 @@ export function PosterStudio({
   const posterCount = result ? result.locales.length * screenshots.length : 0;
 
   return (
-    <Panel className="h-full">
-      <PanelHeader
-        icon={<ImageIcon size={16} />}
+    <Card className="h-full overflow-hidden">
+      <CardHeader
         title="Posters"
-        subtitle="9:16, exported at 1080 by 1920"
-        right={
-          result && (
-            <Badge tone="accent">
-              {posterCount} poster{posterCount === 1 ? "" : "s"}
-            </Badge>
-          )
+        description={
+          result
+            ? `${posterCount} poster${posterCount === 1 ? "" : "s"}, 1080 by 1920.`
+            : "1080 by 1920, Play Store ready."
+        }
+        actions={
+          <Button variant="primary" size="sm" disabled={!result || loading} loading={!!exporting} onClick={handleExportAll}>
+            {exporting ? `Rendering ${exporting.done} of ${exporting.total}` : "Download Fastlane ZIP"}
+          </Button>
         }
       />
-
-      {/* Toolbar */}
-      <div className="flex flex-wrap items-center gap-2 border-b border-line px-4 py-2.5">
-        <div className="flex items-center gap-1 rounded-lg border border-line bg-sunken p-1">
-          {LAYOUTS.map((l) => (
-            <button
-              key={l.id}
-              type="button"
-              onClick={() => onLayoutChange(l.id)}
-              className={cn(
-                "flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs transition-colors",
-                layout === l.id ? "bg-accent text-panel" : "text-muted hover:text-panel",
-              )}
-            >
-              {l.icon}
-              {l.label}
-            </button>
-          ))}
-        </div>
-        <div className="flex items-center gap-1 rounded-lg border border-line bg-sunken p-1">
-          <button
-            type="button"
-            onClick={() => onTextPositionChange("top")}
-            title="Text on top"
-            className={cn(
-              "flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs",
-              textPosition === "top" ? "bg-line text-panel" : "text-muted hover:text-panel",
-            )}
-          >
-            <AlignVerticalJustifyStart size={14} /> Top
-          </button>
-          <button
-            type="button"
-            onClick={() => onTextPositionChange("bottom")}
-            title="Text on bottom"
-            className={cn(
-              "flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs",
-              textPosition === "bottom" ? "bg-line text-panel" : "text-muted hover:text-panel",
-            )}
-          >
-            <AlignVerticalJustifyEnd size={14} /> Bottom
-          </button>
-        </div>
-        <div className="ml-auto">
-          <Button variant="primary" size="sm" disabled={!result || !!exporting || loading} onClick={handleExportAll}>
-            {exporting ? <Loader2 size={14} className="animate-spin" /> : <Package size={14} />}
-            {exporting ? `Rendering ${exporting.done}/${exporting.total}…` : "Download Fastlane ZIP"}
-          </Button>
-        </div>
+      <div className="flex flex-wrap items-center gap-2 px-5 pb-4">
+        <SegmentedControl label="Poster layout" options={LAYOUTS} value={layout} onChange={onLayoutChange} />
+        <SegmentedControl label="Headline position" options={POSITIONS} value={textPosition} onChange={onTextPositionChange} />
       </div>
-      {exportError && <p className="border-b border-bad/30 bg-bad-soft px-4 py-2 text-xs text-bad">{exportError}</p>}
+      {exportError && (
+        <Notice tone="bad" title="The export stopped" className="mx-5 mb-4">
+          {exportError} Try again, or download posters one at a time.
+        </Notice>
+      )}
 
-      <PanelBody className="grid-bg">
+      <div className="grid-bg min-h-0 flex-1 overflow-y-auto border-t border-line px-5 py-6">
         {!result && !loading && (
-          <EmptyState
-            title="Nothing generated yet"
-            body="Add screenshots and a description, pick markets, then generate. One poster per screenshot and market appears here."
-          />
+          <EmptyState title="Nothing generated yet">
+            Add screenshots and a short description, choose markets, then generate. Posters for every market appear here.
+          </EmptyState>
         )}
-        {loading && (
-          <div className="flex h-full flex-col items-center justify-center gap-3 text-center text-sm text-muted">
-            <Loader2 size={28} className="animate-spin text-accent" />
-            <p>Segmenting UI with SAM 3.1, writing copy with Muse Spark, painting backgrounds with Muse Image…</p>
-          </div>
-        )}
+        {loading && <Working>Finding UI regions, writing copy for each market and painting backgrounds.</Working>}
         {result && !loading && (
-          <div className="space-y-8">
+          <div className="space-y-10">
             {result.warnings.length > 0 && (
-              <div className="rounded-lg border border-warn/30 bg-warn-soft p-3 text-xs text-warn">
-                <p className="mb-1 font-semibold">Some model calls fell back to simulation:</p>
+              <Notice tone="warn" title="Some model calls fell back to simulated output">
                 <ul className="list-disc space-y-0.5 pl-4">
                   {result.warnings.map((w, i) => (
                     <li key={i}>{w}</li>
                   ))}
                 </ul>
-              </div>
+              </Notice>
             )}
             {result.locales.map((r) => {
               const loc = LOCALE_MAP[r.locale];
               return (
                 <section key={r.locale}>
-                  <div className="mb-3 flex items-center gap-2">
-                    <span className="text-xl leading-none">{loc.flag}</span>
-                    <h3 className="text-sm font-semibold">{loc.label}</h3>
-                    {loc.rtl && <Badge tone="accent">RTL</Badge>}
-                    <span className="text-[11px] text-muted">· {r.culturalNote}</span>
+                  <div className="mb-4 max-w-2xl">
+                    <div className="flex items-center gap-2">
+                      <h3 className="font-display text-lg leading-tight">{loc.label}</h3>
+                      <span className="font-mono text-xs text-muted">{loc.playStoreCode}</span>
+                      {loc.rtl && <Tag>Right to left</Tag>}
+                    </div>
+                    {r.culturalNote && <p className="mt-1 text-[13px] leading-relaxed text-muted">{r.culturalNote}</p>}
                   </div>
-                  <div className="flex gap-5 overflow-x-auto pb-3">
+                  <div className="flex gap-6 overflow-x-auto pb-2">
                     {screenshots.map((shot, i) => {
                       const key = `${r.locale}-${i}`;
                       const copy = r.posters[i] ?? r.posters[0] ?? { headline: "", subheadline: "" };
                       return (
-                        <div key={key} className="flex flex-col items-center gap-2">
-                          <div className="rounded-lg p-[2px] ring-1 ring-line">
+                        <figure key={key} className="flex shrink-0 flex-col gap-2.5">
+                          <div className="overflow-hidden rounded-[18px] shadow-pop">
                             <PosterCanvas
                               ref={register(key)}
                               locale={r.locale}
@@ -230,28 +175,20 @@ export function PosterStudio({
                               textPosition={textPosition}
                             />
                           </div>
-                          <div className="flex w-full items-center justify-between px-1">
-                            <span className="font-mono text-[10px] text-muted">
-                              {loc.playStoreCode}/images/phoneScreenshots/{i + 1}.png
-                            </span>
-                            <Button
-                              size="sm"
-                              variant="ghost"
+                          <figcaption className="flex items-center justify-between px-0.5 text-xs">
+                            <span className="text-muted">Screenshot {i + 1}</span>
+                            <TextButton
+                              className="text-xs"
                               disabled={downloading === key}
                               onClick={() => {
                                 const node = nodes.current.get(key);
                                 if (node) void handleDownloadOne({ locale: r.locale, index: i, node });
                               }}
                             >
-                              {downloading === key ? (
-                                <Loader2 size={13} className="animate-spin" />
-                              ) : (
-                                <Download size={13} />
-                              )}
-                              PNG
-                            </Button>
-                          </div>
-                        </div>
+                              {downloading === key ? "Saving" : "Save PNG"}
+                            </TextButton>
+                          </figcaption>
+                        </figure>
                       );
                     })}
                   </div>
@@ -260,19 +197,7 @@ export function PosterStudio({
             })}
           </div>
         )}
-      </PanelBody>
-    </Panel>
-  );
-}
-
-function EmptyState({ title, body }: { title: string; body: string }) {
-  return (
-    <div className="flex h-full flex-col items-center justify-center text-center">
-      <div className="mb-4 flex h-24 w-14 items-center justify-center rounded-lg border-2 border-dashed border-line">
-        <ImageIcon size={18} className="text-faint" />
       </div>
-      <p className="text-sm font-medium text-ink">{title}</p>
-      <p className="mt-1 max-w-xs text-xs text-muted">{body}</p>
-    </div>
+    </Card>
   );
 }

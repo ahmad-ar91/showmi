@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Fraunces, IBM_Plex_Mono, IBM_Plex_Sans } from "next/font/google";
 import "./globals.css";
+import { BRAND } from "@/lib/brand";
 
 const plexSans = IBM_Plex_Sans({
   variable: "--font-plex-sans",
@@ -21,9 +22,8 @@ const fraunces = Fraunces({
 });
 
 export const metadata: Metadata = {
-  title: "LocaLaunch — ASO audit, localization and Fastlane export",
-  description:
-    "Audit a Google Play listing against a competitor, fix it with localized copy and posters, and export a Fastlane bundle.",
+  title: `${BRAND.name}, ${BRAND.tagline}`,
+  description: BRAND.description,
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

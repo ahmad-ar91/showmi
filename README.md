@@ -67,6 +67,7 @@ A vendor without a key (or one that cannot serve a capability) silently resolves
 src/
   app/
     page.tsx                     # Three-step shell: audit, localize, preview and export
+    styleguide/page.tsx          # Live reference of every UI component
     api/generate-aso/route.ts    # POST: localization pipeline; GET: provider status
     api/segment/route.ts         # POST: candidate UI regions for the Segment Picker
     api/analyze-aso/route.ts     # POST: scrape Play listings + SAM/Muse audit
@@ -90,8 +91,24 @@ src/
     workspace/PosterStudio.tsx   # Layout presets (Classic / Tilt / Offset), text position, export
     workspace/PosterCanvas.tsx   # 9:16 poster: background, localized copy, phone mockup, floating UI cards
     workspace/MetadataInspector.tsx  # Editable Title/Short/Full with live counters + Copy
-    ui/                          # Minimal shadcn-style primitives (Button, Badge, Panel)
+    ui/                          # Standard components (see "Design system" below)
+    brand-mark.tsx               # Temporary typographic logo mark
 ```
+
+## Design system
+
+Every screen is built from the components in `src/components/ui` and the tokens in `src/app/globals.css`. Open `/styleguide` to see all of them.
+
+| Component | Use it for |
+| --- | --- |
+| `Card`, `CardHeader`, `CardBody`, `Well`, `Divider` | The one container surface and how to group inside it |
+| `Button`, `TextButton`, `CopyButton`, `Spinner` | Actions; `loading` keeps the label and shows a spinner |
+| `Field`, `Input`, `Textarea`, `Select`, `Counter` | Every form control, with label, hint, error and Play limit counters |
+| `SegmentedControl`, `Tabs`, `CheckRow` | Choosing between options, peers and list items |
+| `Tag`, `Notice`, `EmptyState`, `Working` | Status, messages, empty and loading regions |
+| `ScoreDial`, `Meter`, `Stat`, `Table`, `MarkedList` | Scores, bars, facts, tables and lists |
+
+Rules: no decorative icons (the project has no icon library), one card level, one primary button per view, every control in a `Field`, sentence case. The product name lives in `src/lib/brand.ts`.
 
 ## API
 

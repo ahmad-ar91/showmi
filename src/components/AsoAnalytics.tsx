@@ -1,24 +1,27 @@
 "use client";
 
 import { useState } from "react";
-import {
-  AlertTriangle,
-  BarChart3,
-  CheckCircle2,
-  Crosshair,
-  Loader2,
-  Search,
-  Sparkles,
-  Wand2,
-  XCircle,
-} from "lucide-react";
 import { PolarAngleAxis, PolarGrid, PolarRadiusAxis, Radar, RadarChart, ResponsiveContainer } from "recharts";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Panel, PanelHeader } from "@/components/ui/panel";
+import {
+  Button,
+  Card,
+  CardBody,
+  CardHeader,
+  Field,
+  Input,
+  MarkedList,
+  Meter,
+  Notice,
+  ScoreDial,
+  Stat,
+  Table,
+  Tag,
+  TextButton,
+  Working,
+  scoreTone,
+} from "@/components/ui";
 import type { AsoAnalysis, VisualAudit } from "@/lib/aso-analytics";
 import { PLAY_LIMITS } from "@/lib/types";
-import { cn } from "@/lib/utils";
 
 interface Props {
   analysis: AsoAnalysis | null;
@@ -28,15 +31,36 @@ interface Props {
   onFixAndLocalize: () => void;
 }
 
-const METRIC_LABELS: { key: keyof AsoAnalysis["metrics"]; label: string; hint: string }[] = [
-  { key: "keywordOptimization", label: "Keyword Optimization", hint: "Muse Spark" },
-  { key: "visualClarity", label: "Visual Clarity", hint: "SAM 3.1" },
-  { key: "culturalFit", label: "Cultural Fit", hint: "Muse Spark" },
-  { key: "ctaStrength", label: "CTA Strength", hint: "Muse Spark" },
-  { key: "metadataCompliance", label: "Metadata Compliance", hint: "Play limits" },
+const METRICS: { key: keyof AsoAnalysis["metrics"]; label: string; source: string }[] = [
+  { key: "keywordOptimization", label: "Keywords", source: "Muse Spark" },
+  { key: "visualClarity", label: "Visual clarity", source: "SAM 3.1" },
+  { key: "culturalFit", label: "Cultural fit", source: "Muse Spark" },
+  { key: "ctaStrength", label: "Call to action", source: "Muse Spark" },
+  { key: "metadataCompliance", label: "Play limits", source: "Rules" },
+];
+
+const AUDIT_OUTPUTS = [
+  {
+    title: "A health score",
+    body: "Five measures from 0 to 100: keywords, visual clarity, cultural fit, call to action and Play limits.",
+  },
+  {
+    title: "A screenshot teardown",
+    body: "SAM 3.1 outlines each screenshot, rates how busy it is and shows where the eye lands first.",
+  },
+  {
+    title: "The keywords you are missing",
+    body: "Terms your competitor uses that you do not, or high-intent terms for your category if you skip the competitor.",
+  },
 ];
 
 const COMPLIANCE_LABEL = { title: "Title", shortDescription: "Short description", fullDescription: "Full description" } as const;
+
+const PLACEMENT_LABEL = {
+  title: `Title, ${PLAY_LIMITS.title} chars`,
+  short: `Short description, ${PLAY_LIMITS.shortDescription} chars`,
+  full: "Full description",
+} as const;
 
 function verdictLine(score: number): string {
   if (score >= 85) return "Strong listing. Localize to grow further.";
@@ -45,391 +69,298 @@ function verdictLine(score: number): string {
   return "Weak listing. Start with the fixes below.";
 }
 
-function scoreTone(n: number): "success" | "warning" | "danger" {
-  return n >= 75 ? "success" : n >= 50 ? "warning" : "danger";
-}
-
 export function AsoAnalytics({ analysis, loading, error, onAnalyze, onFixAndLocalize }: Props) {
   const [appId, setAppId] = useState("");
   const [competitorId, setCompetitorId] = useState("");
 
+  const submit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (appId.trim()) onAnalyze({ appId, competitorAppId: competitorId });
+  };
+
   return (
     <div className="flex h-full min-h-0 flex-col gap-4">
-      {/* Inputs */}
-      <Panel>
-        <PanelHeader
-          icon={<Search size={16} />}
+      <Card>
+        <CardHeader
           title="Audit your listing"
-          subtitle="Pulls the Google Play listing and scores it with SAM 3.1 and Muse Spark. Add a competitor to find the keywords it wins on."
-          right={
-            <Button variant="primary" size="sm" disabled={loading} onClick={() => onAnalyze({ appId, competitorAppId: competitorId, demo: true })}>
-              {loading ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
-              Load demo: Ritmova vs Paceto
-            </Button>
+          description="We pull the Google Play listing and score it. Add a competitor to see which keywords it wins on."
+          actions={
+            <TextButton disabled={loading} onClick={() => onAnalyze({ appId, competitorAppId: competitorId, demo: true })}>
+              Try the demo: Ritmova vs Paceto
+            </TextButton>
           }
         />
-        <div className="grid gap-3 p-4 md:grid-cols-[1fr_1fr_auto]">
-          <label className="block">
-            <span className="mb-1 block text-[11px] font-semibold text-muted">Your app (Play Store ID or URL)</span>
-            <input
-              value={appId}
-              onChange={(e) => setAppId(e.target.value)}
-              placeholder="com.example.ritmova or https://play.google.com/store/apps/details?id=…"
-              className="h-10 w-full rounded-lg border border-line bg-sunken px-3 text-sm placeholder:text-muted focus:border-accent focus:outline-none"
-            />
-          </label>
-          <label className="block">
-            <span className="mb-1 block text-[11px] font-semibold text-muted">Competitor (optional)</span>
-            <input
-              value={competitorId}
-              onChange={(e) => setCompetitorId(e.target.value)}
-              placeholder="com.example.paceto"
-              className="h-10 w-full rounded-lg border border-line bg-sunken px-3 text-sm placeholder:text-muted focus:border-accent focus:outline-none"
-            />
-          </label>
-          <div className="flex items-end">
-            <Button
-              size="md"
-              className="w-full md:w-auto"
-              disabled={loading || !appId.trim()}
-              onClick={() => onAnalyze({ appId, competitorAppId: competitorId })}
-            >
-              {loading ? <Loader2 size={14} className="animate-spin" /> : <BarChart3 size={14} />}
-              Analyze
+        <CardBody>
+          <form onSubmit={submit} className="grid items-end gap-4 md:grid-cols-[1fr_1fr_auto]">
+            <Field label="Your app" htmlFor="audit-app">
+              <Input
+                id="audit-app"
+                value={appId}
+                onChange={(e) => setAppId(e.target.value)}
+                placeholder="com.example.ritmova or a Play Store link"
+              />
+            </Field>
+            <Field label="Competitor" htmlFor="audit-competitor" aside="Optional">
+              <Input
+                id="audit-competitor"
+                value={competitorId}
+                onChange={(e) => setCompetitorId(e.target.value)}
+                placeholder="com.example.paceto"
+              />
+            </Field>
+            <Button type="submit" variant="primary" loading={loading} disabled={!appId.trim()}>
+              {loading ? "Auditing" : "Run audit"}
             </Button>
-          </div>
-        </div>
-        {error && <p className="border-t border-bad/30 bg-bad-soft px-4 py-2 text-xs text-bad">{error}</p>}
-      </Panel>
-
-      {/* Dashboard */}
-      {!analysis && !loading && (
-        <Panel className="flex-1">
-          <div className="flex h-full flex-col items-center justify-center p-10 text-center">
-            <BarChart3 size={26} className="mb-3 text-faint" />
-            <p className="font-display text-lg text-ink">Start with an audit</p>
-            <p className="mt-1 max-w-md text-xs text-muted">
-              Enter your Play Store app, and a competitor if you have one, or load the demo. You get an ASO health
-              score, a screenshot teardown and the keywords you are missing.
-            </p>
-          </div>
-        </Panel>
-      )}
+          </form>
+          {error && (
+            <Notice tone="bad" title="The audit could not run" className="mt-4">
+              {error}
+            </Notice>
+          )}
+          {!analysis && !loading && (
+            <div className="mt-6 grid gap-x-8 gap-y-5 border-t border-line pt-6 md:grid-cols-3">
+              {AUDIT_OUTPUTS.map((o) => (
+                <div key={o.title}>
+                  <p className="font-display text-[17px] leading-snug">{o.title}</p>
+                  <p className="mt-1 text-[13px] leading-relaxed text-muted">{o.body}</p>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardBody>
+      </Card>
       {loading && (
-        <Panel className="flex-1">
-          <div className="flex h-full flex-col items-center justify-center gap-3 p-10 text-center text-sm text-muted">
-            <Loader2 size={28} className="animate-spin text-accent" />
-            <p>Scraping Google Play, segmenting screenshots with SAM 3.1 and scoring with Muse Spark…</p>
-          </div>
-        </Panel>
+        <Card className="flex-1">
+          <Working>Reading the Play Store listing, outlining screenshot regions and scoring the copy.</Working>
+        </Card>
       )}
+
       {analysis && !loading && (
-        <div className="min-h-0 flex-1 space-y-4 overflow-y-auto pr-1">
+        <div className="min-h-0 flex-1 space-y-4 overflow-y-auto pb-2 pr-1">
           {analysis.warnings.length > 0 && (
-            <div className="rounded-lg border border-warn/30 bg-warn-soft p-3 text-xs text-warn">
+            <Notice tone="warn" title="Part of this audit used simulated output">
               <ul className="list-disc space-y-0.5 pl-4">
                 {analysis.warnings.map((w, i) => (
                   <li key={i}>{w}</li>
                 ))}
               </ul>
-            </div>
+            </Notice>
           )}
 
-          {/* Verdict: the listing as the hero, its score, the competitor, the five metrics */}
-          <Panel>
-            <div className="grid gap-0 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)]">
-              <div className="flex flex-col gap-5 p-5 lg:border-r lg:border-line">
-                <div className="flex items-start gap-4">
-                  <ScoreRing score={analysis.healthScore} />
-                  <div className="min-w-0 flex-1">
+          {/* Verdict */}
+          <Card>
+            <div className="grid lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)]">
+              <div className="flex flex-col gap-6 p-6">
+                <div className="flex items-center gap-5">
+                  <ScoreDial score={analysis.healthScore} label={`ASO health ${analysis.healthScore} of 100`} />
+                  <div className="min-w-0">
                     <p className="text-xs text-muted">ASO health, out of 100</p>
-                    <h3 className="font-display text-2xl leading-tight">{verdictLine(analysis.healthScore)}</h3>
-                    <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-muted">
-                      <AppChip listing={analysis.app} />
-                      {analysis.competitor ? (
-                        <>
-                          <span>against</span>
-                          <AppChip listing={analysis.competitor} />
-                        </>
-                      ) : (
-                        <span>scored against category best practice</span>
-                      )}
-                    </div>
+                    <h3 className="mt-1 font-display text-[26px] leading-[1.15]">{verdictLine(analysis.healthScore)}</h3>
                   </div>
                 </div>
-                <dl className="grid grid-cols-3 gap-2 text-xs">
+                <p className="text-[13px] leading-relaxed text-muted">
+                  <AppName listing={analysis.app} />
+                  {analysis.competitor ? (
+                    <>
+                      {" "}compared with <AppName listing={analysis.competitor} />.
+                    </>
+                  ) : (
+                    " scored against strong listings in its category."
+                  )}
+                </p>
+                <dl className="grid grid-cols-3 gap-4 border-t border-line pt-5">
                   {analysis.compliance.map((c) => (
-                    <div key={c.field} className="rounded-md border border-line px-3 py-2">
-                      <dt className="text-muted">{COMPLIANCE_LABEL[c.field]}</dt>
-                      <dd className={cn("mt-0.5 flex items-center gap-1 font-mono text-sm", c.ok ? "text-ok" : "text-bad")}>
-                        {c.ok ? <CheckCircle2 size={13} /> : <XCircle size={13} />}
-                        {c.length}
-                        <span className="text-faint">/{c.limit}</span>
-                      </dd>
-                    </div>
+                    <Stat
+                      key={c.field}
+                      label={COMPLIANCE_LABEL[c.field]}
+                      tone={c.ok ? undefined : "bad"}
+                      value={
+                        <>
+                          {c.length}
+                          <span className="text-faint">/{c.limit}</span>
+                        </>
+                      }
+                    />
                   ))}
                 </dl>
               </div>
-              <div className="flex flex-col">
-                <div className="h-[230px] px-2 pt-2">
+              <div className="flex flex-col border-t border-line lg:border-l lg:border-t-0">
+                <div className="h-[230px] px-2 pt-3">
                   <ResponsiveContainer width="100%" height="100%">
-                    <RadarChart
-                      data={METRIC_LABELS.map((m) => ({ metric: m.label, score: analysis.metrics[m.key] }))}
-                      outerRadius="70%"
-                    >
+                    <RadarChart data={METRICS.map((m) => ({ metric: m.label, score: analysis.metrics[m.key] }))} outerRadius="68%">
                       <PolarGrid stroke="var(--line)" />
                       <PolarAngleAxis dataKey="metric" tick={{ fill: "var(--muted)", fontSize: 11 }} />
                       <PolarRadiusAxis angle={90} domain={[0, 100]} tick={false} axisLine={false} />
-                      <Radar dataKey="score" stroke="var(--accent)" fill="var(--accent)" fillOpacity={0.18} strokeWidth={1.5} />
+                      <Radar dataKey="score" stroke="var(--accent)" fill="var(--accent)" fillOpacity={0.14} strokeWidth={1.5} />
                     </RadarChart>
                   </ResponsiveContainer>
                 </div>
-                <ul className="grid grid-cols-1 gap-x-4 border-t border-line px-4 py-3 text-xs sm:grid-cols-2">
-                  {METRIC_LABELS.map((m) => (
-                    <li key={m.key} className="flex items-center justify-between border-b border-line/70 py-1.5">
-                      <span className="text-ink">
-                        {m.label} <span className="text-faint">({m.hint})</span>
+                <ul className="grid grid-cols-1 gap-x-6 px-6 pb-5 sm:grid-cols-2">
+                  {METRICS.map((m) => (
+                    <li key={m.key} className="flex items-center justify-between gap-3 border-t border-line py-2 text-[13px]">
+                      <span>
+                        {m.label} <span className="text-xs text-faint">{m.source}</span>
                       </span>
-                      <span
-                        className={cn(
-                          "font-mono",
-                          analysis.metrics[m.key] >= 75 ? "text-ok" : analysis.metrics[m.key] >= 50 ? "text-warn" : "text-bad",
-                        )}
-                      >
-                        {analysis.metrics[m.key]}
-                      </span>
+                      <Tag tone={scoreTone(analysis.metrics[m.key])}>{analysis.metrics[m.key]}</Tag>
                     </li>
                   ))}
                 </ul>
               </div>
             </div>
-          </Panel>
+          </Card>
 
           {/* Findings */}
-          <Panel>
-            <PanelHeader
-              icon={<AlertTriangle size={16} />}
-              title="Findings"
-              subtitle="What Muse Spark would change first"
-              right={
+          <Card>
+            <CardHeader
+              title="What to fix first"
+              description="Muse Spark's read of the listing, most important first."
+              actions={
                 <Button variant="primary" size="sm" onClick={onFixAndLocalize}>
-                  <Wand2 size={14} /> Fix and localize
+                  Fix and localize
                 </Button>
               }
             />
-            <div className="grid gap-5 p-4 text-xs md:grid-cols-3">
-              <FindingList title="Weaknesses" tone="danger" items={analysis.weaknesses} />
-              <FindingList title="Strengths" tone="success" items={analysis.strengths} />
-              <FindingList title="Recommendations" tone="accent" items={analysis.recommendations} />
-            </div>
-          </Panel>
+            <CardBody className="grid gap-8 md:grid-cols-3">
+              <FindingGroup title="Weaknesses" tone="bad" items={analysis.weaknesses} />
+              <FindingGroup title="Recommendations" tone="accent" items={analysis.recommendations} />
+              <FindingGroup title="Strengths" tone="ok" items={analysis.strengths} />
+            </CardBody>
+          </Card>
 
           {/* Visual teardown */}
-          <Panel>
-            <PanelHeader
-              icon={<Crosshair size={16} />}
+          <Card>
+            <CardHeader
               title="Screenshot teardown"
-              subtitle="SAM 3.1 regions, clutter score, focal-point heatmap and a critique per screenshot"
+              description="Regions found by SAM 3.1, how busy each screenshot is, and where the eye lands."
             />
-            <div className="grid gap-4 p-4 md:grid-cols-2">
+            <CardBody className="grid gap-4 md:grid-cols-2">
               {analysis.visual.map((v) => (
                 <TeardownCard key={v.index} audit={v} weak={analysis.weakScreenshots.includes(v.index)} />
               ))}
-            </div>
-          </Panel>
+            </CardBody>
+          </Card>
 
-          {/* Keyword gap */}
-          <Panel>
-            <PanelHeader
-              icon={<Search size={16} />}
-              title="Keyword gap"
-              subtitle={
+          {/* Keywords */}
+          <Card>
+            <CardHeader
+              title={analysis.competitor ? "Keyword gap" : "Keyword opportunities"}
+              description={
                 analysis.competitor
-                  ? `Terms ${analysis.competitor.title} ranks on that are missing from your listing`
-                  : "High-intent terms for your category that your listing never uses"
+                  ? `Terms ${analysis.competitor.title} uses that your listing does not.`
+                  : "High-intent terms for your category that your listing never uses."
               }
             />
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs">
-                <thead className="border-b border-line text-[10px] text-muted">
+            <div className="pb-3">
+              <Table>
+                <thead>
                   <tr>
-                    <th className="px-4 py-2 font-medium">Keyword</th>
-                    {analysis.competitor && <th className="px-4 py-2 font-medium">Competitor uses</th>}
-                    <th className="px-4 py-2 font-medium">Difficulty</th>
-                    <th className="px-4 py-2 font-medium">Relevance</th>
-                    <th className="px-4 py-2 font-medium">Where to add it</th>
+                    <th>Keyword</th>
+                    {analysis.competitor && <th>Competitor uses</th>}
+                    <th>Difficulty</th>
+                    <th>Relevance</th>
+                    <th>Where to add it</th>
                   </tr>
                 </thead>
                 <tbody>
                   {analysis.keywordGaps.map((g) => (
-                    <tr key={g.keyword} className="border-b border-line hover:bg-sunken">
-                      <td className="px-4 py-2 font-medium text-ink">{g.keyword}</td>
-                      {analysis.competitor && <td className="px-4 py-2 text-muted">{g.competitorCount}×</td>}
-                      <td className="px-4 py-2">
+                    <tr key={g.keyword}>
+                      <td className="font-medium">{g.keyword}</td>
+                      {analysis.competitor && <td className="font-mono text-xs text-muted">{g.competitorCount} times</td>}
+                      <td>
                         <Meter value={g.difficulty} invert />
                       </td>
-                      <td className="px-4 py-2">
+                      <td>
                         <Meter value={g.relevance} />
                       </td>
-                      <td className="px-4 py-2">
-                        <Badge tone="neutral">
-                          {g.placement === "title"
-                            ? `Title (≤${PLAY_LIMITS.title})`
-                            : g.placement === "short"
-                              ? `Short desc (≤${PLAY_LIMITS.shortDescription})`
-                              : "Full description"}
-                        </Badge>
-                      </td>
+                      <td className="text-muted">{PLACEMENT_LABEL[g.placement] ?? g.placement}</td>
                     </tr>
                   ))}
                   {analysis.keywordGaps.length === 0 && (
                     <tr>
-                      <td colSpan={analysis.competitor ? 5 : 4} className="px-4 py-6 text-center text-muted">
-                        No keyword gap found.
+                      <td colSpan={analysis.competitor ? 5 : 4} className="py-8 text-center text-muted">
+                        No missing keywords found.
                       </td>
                     </tr>
                   )}
                 </tbody>
-              </table>
+              </Table>
             </div>
-          </Panel>
+          </Card>
         </div>
       )}
     </div>
   );
 }
 
-/* ------------------------------- Sub-components ------------------------------- */
+/* ------------------------------- Pieces ------------------------------- */
 
-function ScoreRing({ score }: { score: number }) {
-  const r = 54;
-  const c = 2 * Math.PI * r;
-  const color = score >= 75 ? "var(--ok)" : score >= 50 ? "var(--warn)" : "var(--bad)";
+function AppName({ listing }: { listing: NonNullable<AsoAnalysis["competitor"]> }) {
   return (
-    <div className="relative h-28 w-28 shrink-0">
-      <svg viewBox="0 0 128 128" className="h-full w-full -rotate-90">
-        <circle cx="64" cy="64" r={r} stroke="var(--line)" strokeWidth="8" fill="none" />
-        <circle
-          cx="64"
-          cy="64"
-          r={r}
-          stroke={color}
-          strokeWidth="8"
-          fill="none"
-          strokeLinecap="butt"
-          strokeDasharray={c}
-          strokeDashoffset={c * (1 - score / 100)}
-        />
-      </svg>
-      <div className="absolute inset-0 flex flex-col items-center justify-center">
-        <span className="font-display text-4xl leading-none tabular-nums">{score}</span>
-      </div>
-    </div>
-  );
-}
-
-function AppChip({ listing }: { listing: AsoAnalysis["app"] }) {
-  return (
-    <span className="flex items-center gap-1.5 rounded-full border border-line bg-sunken px-2 py-0.5">
+    <span className="inline-flex items-baseline gap-1.5 whitespace-nowrap">
       {/* eslint-disable-next-line @next/next/no-img-element */}
-      {listing.icon && <img src={listing.icon} alt="" className="h-4 w-4 rounded" />}
-      <span className="max-w-[110px] truncate text-ink">{listing.title}</span>
-      <span className="text-warn">★ {listing.score.toFixed(1)}</span>
-      {listing.source === "snapshot" && <Badge tone="warning">snapshot</Badge>}
+      {listing.icon && <img src={listing.icon} alt="" className="h-4 w-4 translate-y-[3px] rounded" />}
+      <span className="font-medium text-ink">{listing.title}</span>
+      <span className="font-mono text-xs">{listing.score.toFixed(1)} rating</span>
+      {listing.source === "snapshot" && <Tag tone="warn">saved snapshot</Tag>}
     </span>
   );
 }
 
-function FindingList({ title, items, tone }: { title: string; items: string[]; tone: "danger" | "success" | "accent" }) {
+function FindingGroup({ title, items, tone }: { title: string; items: string[]; tone: "bad" | "ok" | "accent" }) {
   if (!items.length) return null;
-  const dot = { danger: "bg-bad", success: "bg-ok", accent: "bg-accent" }[tone];
   return (
     <div>
-      <p className="mb-1.5 text-[10px] font-semibold text-muted">{title}</p>
-      <ul className="space-y-1.5">
-        {items.map((it, i) => (
-          <li key={i} className="flex gap-2 text-ink">
-            <span className={cn("mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full", dot)} />
-            <span>{it}</span>
-          </li>
-        ))}
-      </ul>
+      <p className="mb-3 text-[13px] font-medium text-ink">{title}</p>
+      <MarkedList tone={tone} items={items} />
     </div>
   );
 }
-
-function Meter({ value, invert = false }: { value: number; invert?: boolean }) {
-  const good = invert ? value < 50 : value >= 50;
-  return (
-    <div className="flex items-center gap-2">
-      <div className="h-1.5 w-20 overflow-hidden rounded-full bg-sunken">
-        <div className={cn("h-full rounded-full", good ? "bg-ok" : "bg-warn")} style={{ width: `${value}%` }} />
-      </div>
-      <span className="font-mono text-[11px] text-muted">{value}</span>
-    </div>
-  );
-}
-
-const ACCENTS = ["#1f3fbf", "#1e7a4f", "#9a6a0f", "#b3261e", "#15299a", "#17191e"];
 
 function TeardownCard({ audit, weak }: { audit: VisualAudit; weak: boolean }) {
   const [showHeat, setShowHeat] = useState(true);
   return (
-    <div className="flex gap-4 rounded-lg border border-line bg-sunken p-3">
-      <div className="relative w-[150px] shrink-0 overflow-hidden rounded-lg bg-black" style={{ aspectRatio: "9 / 16" }}>
+    <div className="flex gap-5 rounded-lg bg-sunken p-4">
+      <div className="relative w-[140px] shrink-0 overflow-hidden rounded-md bg-ink/90" style={{ aspectRatio: "9 / 16" }}>
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={audit.screenshotDataUrl || audit.screenshotUrl} alt="" className="h-full w-full object-cover" />
+        <img src={audit.screenshotDataUrl || audit.screenshotUrl} alt={`Screenshot ${audit.index + 1}`} className="h-full w-full object-cover" />
         {showHeat && (
           <div
             className="pointer-events-none absolute inset-0"
             style={{
-              background: `radial-gradient(circle at ${audit.focalPoint.x * 100}% ${audit.focalPoint.y * 100}%, rgba(251,113,133,0.55) 0%, rgba(251,191,36,0.35) 22%, rgba(34,211,238,0.12) 45%, transparent 65%)`,
-              mixBlendMode: "screen",
+              background: `radial-gradient(circle at ${audit.focalPoint.x * 100}% ${audit.focalPoint.y * 100}%, rgba(179,38,30,0.45) 0%, rgba(154,106,15,0.28) 22%, rgba(31,63,191,0.1) 45%, transparent 65%)`,
+              mixBlendMode: "multiply",
             }}
           />
         )}
-        {audit.segments.map((s, i) => (
+        {audit.segments.map((s) => (
           <div
             key={s.id}
-            title={`${s.label} ${(s.score * 100).toFixed(0)}%`}
-            className="absolute rounded-sm"
+            className="absolute rounded-[3px] shadow-[0_0_0_1.5px_rgba(255,255,255,0.9),0_0_0_2.5px_rgba(31,63,191,0.8)]"
             style={{
               left: `${s.bbox.x * 100}%`,
               top: `${s.bbox.y * 100}%`,
               width: `${s.bbox.w * 100}%`,
               height: `${s.bbox.h * 100}%`,
-              border: `1.5px solid ${ACCENTS[i % ACCENTS.length]}`,
-              boxShadow: `0 0 0 1px rgba(0,0,0,0.5)`,
             }}
-          >
-            <span
-              className="absolute -top-2 left-0.5 rounded px-1 text-[7px] font-semibold leading-3 text-black"
-              style={{ background: ACCENTS[i % ACCENTS.length] }}
-            >
-              {s.label}
-            </span>
-          </div>
+          />
         ))}
-        <span className="absolute left-1 top-1 rounded bg-ink/80 px-1.5 py-0.5 text-[10px] font-medium">#{audit.index + 1}</span>
       </div>
-      <div className="flex min-w-0 flex-1 flex-col gap-2 text-xs">
-        <div className="flex flex-wrap items-center gap-1.5">
-          <Badge tone={scoreTone(audit.score)}>Visual score {audit.score}</Badge>
-          <Badge tone={audit.clutterScore > 60 ? "danger" : audit.clutterScore > 35 ? "warning" : "success"}>
-            Clutter {audit.clutterScore}
-          </Badge>
-          <Badge tone="neutral">{audit.segments.length} UI regions</Badge>
-          {weak && <Badge tone="danger">Weakest, will be regenerated</Badge>}
+      <div className="flex min-w-0 flex-1 flex-col gap-3">
+        <div className="flex items-center justify-between gap-2">
+          <p className="text-[13px] font-medium">Screenshot {audit.index + 1}</p>
+          {weak && <Tag tone="bad">Weakest</Tag>}
         </div>
-        <p className="text-ink">{audit.critique}</p>
-        <div className="mt-auto flex items-center justify-between text-[11px] text-muted">
-          <span>
-            Focal point at {Math.round(audit.focalPoint.x * 100)}%, {Math.round(audit.focalPoint.y * 100)}%. Regions cover{" "}
-            {Math.round(audit.coverage * 100)}%
-          </span>
-          <button type="button" onClick={() => setShowHeat((v) => !v)} className="text-accent-ink hover:underline">
+        <dl className="grid grid-cols-3 gap-3">
+          <Stat label="Visual score" value={audit.score} tone={scoreTone(audit.score)} />
+          <Stat label="Clutter" value={audit.clutterScore} tone={audit.clutterScore > 60 ? "bad" : audit.clutterScore > 35 ? "warn" : "ok"} />
+          <Stat label="Regions" value={audit.segments.length} />
+        </dl>
+        <p className="text-[13px] leading-relaxed text-ink">{audit.critique}</p>
+        <div className="mt-auto flex items-center justify-between gap-3 text-xs text-muted">
+          <span>Regions cover {Math.round(audit.coverage * 100)}% of the screen.</span>
+          <TextButton className="text-xs" onClick={() => setShowHeat((v) => !v)}>
             {showHeat ? "Hide heatmap" : "Show heatmap"}
-          </button>
+          </TextButton>
         </div>
       </div>
     </div>

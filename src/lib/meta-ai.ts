@@ -1,5 +1,5 @@
 /**
- * LocaLaunch AI service layer / orchestrator.
+ * ShowMi service layer / orchestrator.
  *
  * Talks only to the provider-agnostic interfaces in `src/lib/ai` so the vendor behind each
  * capability (text, image, segmentation) can be swapped with env vars:

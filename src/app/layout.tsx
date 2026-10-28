@@ -22,7 +22,7 @@ const fraunces = Fraunces({
 });
 
 export const metadata: Metadata = {
-  title: `${BRAND.name}, ${BRAND.tagline}`,
+  title: `${BRAND.name} by ${BRAND.endorsedBy}`,
   description: BRAND.description,
 };
 

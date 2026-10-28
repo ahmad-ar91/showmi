@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AsoAnalytics } from "@/components/AsoAnalytics";
-import { BrandMark } from "@/components/brand-mark";
+import { BrandLockup } from "@/components/brand-mark";
 import { BRAND } from "@/lib/brand";
 import { LocalizationStudio, type StudioHandoff } from "@/components/LocalizationStudio";
 import { StoreSimulator } from "@/components/StoreSimulator";
@@ -281,12 +281,9 @@ export default function WorkspacePage() {
     <main className="grid h-screen grid-cols-1 overflow-hidden lg:grid-cols-[256px_minmax(0,1fr)]">
       {/* Left rail: brand, the three-step sequence, provider status */}
       <aside className="flex flex-col border-b border-line bg-panel lg:border-b-0 lg:border-r">
-        <div className="flex items-center gap-3 px-5 pb-5 pt-6">
-          <BrandMark size={34} />
-          <div>
-            <h1 className="font-display text-[22px] leading-none">{BRAND.name}</h1>
-            <p className="mt-1 text-xs text-muted">{BRAND.tagline}</p>
-          </div>
+        <div className="px-5 pb-5 pt-6">
+          <h1 className="sr-only">{BRAND.name}</h1>
+          <BrandLockup />
         </div>
 
         <nav className="flex gap-1 overflow-x-auto px-3 lg:flex-col lg:gap-0.5" aria-label="Workflow steps">

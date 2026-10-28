@@ -1,5 +1,6 @@
 import { toPng } from "html-to-image";
 import JSZip from "jszip";
+import { BRAND } from "./brand";
 import { LOCALE_MAP } from "./locales";
 import type { LocaleResult } from "./types";
 
@@ -90,10 +91,10 @@ export async function exportFastlaneZip(
   }
 
   zip.file(
-    "localaunch-manifest.json",
+    "showmi-manifest.json",
     JSON.stringify(
       {
-        generator: "LocaLaunch AI",
+        generator: `${BRAND.name} by ${BRAND.endorsedBy}`,
         exportedAt: new Date().toISOString(),
         locales: results.map((r) => ({
           locale: r.locale,
@@ -109,7 +110,7 @@ export async function exportFastlaneZip(
   zip.file(
     "README.md",
     [
-      "# LocaLaunch AI export",
+      `# ${BRAND.name} export`,
       "",
       "Google Play listing bundle in the standard Fastlane layout:",
       "",
@@ -132,5 +133,5 @@ export async function exportFastlaneZip(
   );
 
   const blob = await zip.generateAsync({ type: "blob" });
-  triggerDownload(blob, `localaunch-fastlane-${Date.now()}.zip`);
+  triggerDownload(blob, `showmi-fastlane-${Date.now()}.zip`);
 }

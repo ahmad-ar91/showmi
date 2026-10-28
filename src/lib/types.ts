@@ -1,5 +1,5 @@
 /**
- * Shared types for LocaLaunch AI.
+ * Shared types for ShowMi.
  * Used by the API route, the Meta AI service layer, and the workspace UI.
  */
 

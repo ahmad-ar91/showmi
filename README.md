@@ -1,4 +1,6 @@
-# LocaLaunch AI — End-to-End ASO Analytics & Localization Agent
+# ShowMi by viralonme
+
+End-to-end ASO analytics and localization agent for Google Play.
 
 Audit a Google Play listing (optionally against a competitor), fix its weaknesses with localized copy and posters, and ship a Fastlane bundle — in three connected tabs:
 
@@ -92,7 +94,7 @@ src/
     workspace/PosterCanvas.tsx   # 9:16 poster: background, localized copy, phone mockup, floating UI cards
     workspace/MetadataInspector.tsx  # Editable Title/Short/Full with live counters + Copy
     ui/                          # Standard components (see "Design system" below)
-    brand-mark.tsx               # Temporary typographic logo mark
+    brand-mark.tsx               # ShowMi monogram and "by viralonme" lockup
 ```
 
 ## Design system
@@ -108,7 +110,7 @@ Every screen is built from the components in `src/components/ui` and the tokens 
 | `Tag`, `Notice`, `EmptyState`, `Working` | Status, messages, empty and loading regions |
 | `ScoreDial`, `Meter`, `Stat`, `Table`, `MarkedList` | Scores, bars, facts, tables and lists |
 
-Rules: no decorative icons (the project has no icon library), one card level, one primary button per view, every control in a `Field`, sentence case. The product name lives in `src/lib/brand.ts`.
+Rules: no decorative icons (the project has no icon library), one card level, one primary button per view, every control in a `Field`, sentence case. The product name, endorsement and monogram dot colour live in `src/lib/brand.ts`; the favicon is `src/app/icon.svg`.
 
 ## API
 
@@ -139,7 +141,7 @@ fastlane/metadata/android/<locale>/
   full_description.txt
   keywords.txt
   images/phoneScreenshots/1.png, 2.png …     (1080×1920)
-localaunch-manifest.json
+showmi-manifest.json
 README.md
 ```
 

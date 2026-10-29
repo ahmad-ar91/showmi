@@ -90,12 +90,23 @@ export async function postJson<T>(
   headers: Record<string, string>,
   provider: ProviderName,
 ): Promise<T> {
-  const res = await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", ...headers },
-    body: JSON.stringify(body),
-    cache: "no-store",
-  });
+  // Fail before the hosting platform kills the function, so the caller can fall back cleanly.
+  const timeoutMs = Number(process.env.AI_TIMEOUT_MS) || 45_000;
+  let res: Response;
+  try {
+    res = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...headers },
+      body: JSON.stringify(body),
+      cache: "no-store",
+      signal: AbortSignal.timeout(timeoutMs),
+    });
+  } catch (err) {
+    const name = (err as Error).name;
+    if (name === "TimeoutError" || name === "AbortError")
+      throw new ProviderError(provider, `${new URL(url).pathname} timed out after ${Math.round(timeoutMs / 1000)} s`);
+    throw new ProviderError(provider, `${new URL(url).pathname} could not be reached: ${(err as Error).message}`);
+  }
   if (!res.ok) {
     const text = await res.text().catch(() => "");
     throw new ProviderError(provider, `${new URL(url).pathname} → ${res.status} ${text.slice(0, 200)}`);

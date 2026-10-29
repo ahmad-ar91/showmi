@@ -3,7 +3,8 @@ import { auditListing } from "@/lib/aso-analytics";
 import { fetchListing, parseAppId } from "@/lib/play-store";
 import { SAMPLE_APP_ID, SAMPLE_COMPETITOR_ID, isSampleApp, sampleListing } from "@/lib/demo/sample-apps";
 
-export const maxDuration = 120;
+// One audit per request; fits the 60 s limit of the free serverless tier.
+export const maxDuration = 60;
 
 /**
  * POST { appId, competitorAppId?, demo?: boolean }

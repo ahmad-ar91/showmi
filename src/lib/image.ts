@@ -10,11 +10,14 @@ export interface UploadedScreenshot {
   height: number;
 }
 
-const MAX_SIDE = 1400;
+/** Long edge after resizing. High enough for SAM 3.1 to find small UI regions. */
+const MAX_SIDE = 2000;
+/** JPEG keeps three screenshots well under the 4.5 MB serverless request limit. */
+const JPEG_QUALITY = 0.86;
 
 /**
- * Reads a File, downsizes it so the longest edge is <= MAX_SIDE and returns a data URL.
- * Keeps PNG for transparency, otherwise encodes JPEG to keep the request payload small.
+ * Reads a File, downsizes it so the longest edge is <= MAX_SIDE and returns a JPEG data URL.
+ * Screenshots never need transparency, so JPEG is always used to keep requests small.
  */
 export async function fileToScreenshot(file: File): Promise<UploadedScreenshot> {
   const bitmap = await loadImage(URL.createObjectURL(file));
@@ -29,8 +32,11 @@ export async function fileToScreenshot(file: File): Promise<UploadedScreenshot> 
   if (!ctx) throw new Error("Canvas not supported");
   ctx.drawImage(bitmap, 0, 0, width, height);
 
-  const isPng = file.type === "image/png";
-  const dataUrl = isPng ? canvas.toDataURL("image/png") : canvas.toDataURL("image/jpeg", 0.9);
+  // Paint white first so transparent PNG pixels do not turn black in the JPEG.
+  ctx.globalCompositeOperation = "destination-over";
+  ctx.fillStyle = "#ffffff";
+  ctx.fillRect(0, 0, width, height);
+  const dataUrl = canvas.toDataURL("image/jpeg", JPEG_QUALITY);
   URL.revokeObjectURL(bitmap.src);
 
   return {

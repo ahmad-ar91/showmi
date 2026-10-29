@@ -41,6 +41,7 @@ interface Props {
   result: GenerateAsoResponse | null;
   screenshots: UploadedScreenshot[];
   loading: boolean;
+  loadingLabel?: string;
   appName: string;
   layout: LayoutStyle;
   onLayoutChange: (l: LayoutStyle) => void;
@@ -50,6 +51,7 @@ interface Props {
   /** Landscape art per market from Muse Image; falls back to the poster background. */
   featureArt: Record<string, string>;
   featureLoading: boolean;
+  featureLabel?: string;
   featureError: string | null;
   onGenerateFeatureArt: () => void;
   /** Lets other tabs (Store preview) trigger the same Fastlane export. */
@@ -76,6 +78,7 @@ export function PosterStudio({
   result,
   screenshots,
   loading,
+  loadingLabel,
   appName,
   layout,
   onLayoutChange,
@@ -84,6 +87,7 @@ export function PosterStudio({
   onMetadataChange,
   featureArt,
   featureLoading,
+  featureLabel,
   featureError,
   onGenerateFeatureArt,
   onRegisterExport,
@@ -250,7 +254,11 @@ export function PosterStudio({
             graphic and listing text to review here.
           </EmptyState>
         )}
-        {loading && <Working>Finding UI regions, writing copy for each market and painting backgrounds.</Working>}
+        {loading && (
+          <Working>
+            {loadingLabel ? `${loadingLabel}. ` : ""}Each market gets its own copy and background, so larger selections take a little longer.
+          </Working>
+        )}
 
         {result && current && !loading && (
           <div className="space-y-6 px-5 py-6">
@@ -331,7 +339,7 @@ export function PosterStudio({
                       : "It uses the poster background until you generate wide art."}
                   </p>
                   <Button size="sm" loading={featureLoading} onClick={onGenerateFeatureArt}>
-                    {featureLoading ? "Generating art" : Object.keys(featureArt).length ? "Regenerate wide art" : "Generate wide art"}
+                    {featureLoading ? (featureLabel ?? "Generating art") : Object.keys(featureArt).length ? "Regenerate wide art" : "Generate wide art"}
                   </Button>
                 </div>
                 {featureError && (

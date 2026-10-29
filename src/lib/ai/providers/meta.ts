@@ -98,7 +98,8 @@ export class MetaImageProvider implements ImageProvider {
         prompt,
         n: 1,
         size: SIZE_BY_ASPECT[aspect],
-        output_format: "png",
+        // WebP is about a tenth of the PNG size, which keeps API responses under serverless limits.
+        output_format: "webp",
         response_format: "b64_json",
         reasoning_strength: "low",
         tool_enablement: { enable_image_search: false, enable_web_search: false, enable_shell: false },
@@ -107,7 +108,7 @@ export class MetaImageProvider implements ImageProvider {
       "meta",
     );
     const first = data.data?.[0];
-    const mime = `image/${data.output_format || "png"}`;
+    const mime = `image/${data.output_format || "webp"}`;
     if (first?.b64_json) return `data:${mime};base64,${first.b64_json}`;
     if (first?.url) return toDataUrl(first.url);
     throw new Error("Muse Image returned no image");

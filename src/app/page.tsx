@@ -22,6 +22,7 @@ import type {
   TextPosition,
 } from "@/lib/types";
 import { cn } from "@/lib/utils";
+import { inBatches, postJson } from "@/lib/client-api";
 
 type Tab = "analytics" | "studio" | "simulator";
 
@@ -90,12 +91,14 @@ export default function WorkspacePage() {
   const [selectedLocales, setSelectedLocales] = useState<LocaleCode[]>(["en-US", "ja-JP", "id-ID"]);
   const [result, setResult] = useState<GenerateAsoResponse | null>(null);
   const [loading, setLoading] = useState(false);
+  const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState<ProviderStatus>({});
   const [layout, setLayout] = useState<LayoutStyle>("classic");
   const [textPosition, setTextPosition] = useState<TextPosition>("top");
   const [featureArt, setFeatureArt] = useState<Record<string, string>>({});
   const [featureLoading, setFeatureLoading] = useState(false);
+  const [featureProgress, setFeatureProgress] = useState<{ done: number; total: number } | null>(null);
   const [featureError, setFeatureError] = useState<string | null>(null);
   const [railCollapsed, setRailCollapsed] = useRailCollapsed();
 
@@ -122,14 +125,7 @@ export default function WorkspacePage() {
     setAnalyzing(true);
     setAnalysisError(null);
     try {
-      const res = await fetch("/api/analyze-aso", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(input),
-      });
-      const data = (await res.json()) as AsoAnalysis | { error: string };
-      if (!res.ok || "error" in data) throw new Error("error" in data ? data.error : `HTTP ${res.status}`);
-      setAnalysis(data);
+      setAnalysis(await postJson<AsoAnalysis>("/api/analyze-aso", input));
     } catch (err) {
       setAnalysisError((err as Error).message);
     } finally {
@@ -197,33 +193,58 @@ export default function WorkspacePage() {
       return st.segments.filter((s) => st.selected.includes(s.id));
     });
 
+  /**
+   * One request per market keeps every response small and inside serverless time limits.
+   * The first market runs alone so its UI regions can be reused by the rest.
+   */
   const handleGenerate = async () => {
     setLoading(true);
     setError(null);
+    const locales = [...selectedLocales];
+    setProgress({ done: 0, total: locales.length });
+    const base: Omit<GenerateAsoRequest, "locales"> = {
+      appName: appName.trim() || undefined,
+      description: description.trim(),
+      screenshots: screenshots.map((s) => s.dataUrl),
+      segments: pickedSegments(),
+      keywords: handoff?.keywords,
+      weaknesses: handoff?.weaknesses,
+    };
+    const warnings: string[] = [];
+    const parts: (GenerateAsoResponse | null)[] = new Array(locales.length).fill(null);
     try {
-      const body: GenerateAsoRequest = {
-        appName: appName.trim() || undefined,
-        description: description.trim(),
-        screenshots: screenshots.map((s) => s.dataUrl),
-        locales: selectedLocales,
-        segments: pickedSegments(),
-        keywords: handoff?.keywords,
-        weaknesses: handoff?.weaknesses,
-      };
-      const res = await fetch("/api/generate-aso", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
+      const first = await postJson<GenerateAsoResponse>("/api/generate-aso", { ...base, locales: [locales[0]] });
+      parts[0] = first;
+      setProgress({ done: 1, total: locales.length });
+      // Reuse the regions from the first market (at most three badges per screenshot).
+      const segments = first.segments.map((list) => list.slice(0, 3));
+      await inBatches(
+        locales.slice(1),
+        3,
+        async (locale, i) => {
+          try {
+            parts[i + 1] = await postJson<GenerateAsoResponse>("/api/generate-aso", { ...base, segments, locales: [locale] });
+          } catch (err) {
+            warnings.push(`${locale}: ${(err as Error).message}`);
+          }
+        },
+        (done) => setProgress({ done: done + 1, total: locales.length }),
+      );
+      const ok = parts.filter((r): r is GenerateAsoResponse => r !== null);
+      setResult({
+        mode: ok.some((r) => r.mode === "live") ? "live" : "mock",
+        segments: first.segments,
+        locales: ok.flatMap((r) => r.locales),
+        warnings: [...ok.flatMap((r) => r.warnings), ...warnings.map((w) => `Skipped ${w}`)],
+        generatedAt: new Date().toISOString(),
       });
-      const data = (await res.json()) as GenerateAsoResponse | { error: string };
-      if (!res.ok || "error" in data) throw new Error("error" in data ? data.error : `HTTP ${res.status}`);
-      setResult(data);
       setFeatureArt({});
       setFeatureError(null);
     } catch (err) {
       setError((err as Error).message);
     } finally {
       setLoading(false);
+      setProgress(null);
     }
   };
 
@@ -244,13 +265,7 @@ export default function WorkspacePage() {
   const detectSegments = async (shot: UploadedScreenshot, index: number) => {
     setSegmentation((prev) => ({ ...prev, [shot.id]: { status: "detecting", segments: [], selected: [] } }));
     try {
-      const res = await fetch("/api/segment", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ screenshot: shot.dataUrl, index } satisfies SegmentRequest),
-      });
-      const data = (await res.json()) as SegmentResponse | { error: string };
-      if (!res.ok || "error" in data) throw new Error("error" in data ? data.error : `HTTP ${res.status}`);
+      const data = await postJson<SegmentResponse>("/api/segment", { screenshot: shot.dataUrl, index } satisfies SegmentRequest);
       const selected = [...data.segments]
         .sort((a, b) => b.score - a.score)
         .slice(0, 2)
@@ -300,25 +315,37 @@ export default function WorkspacePage() {
     });
   };
 
-  /** Wide Muse Image art for the feature graphic of every generated market. */
+  /** Wide Muse Image art for the feature graphic of every generated market, one request each. */
   const handleGenerateFeatureArt = async () => {
     if (!result) return;
     setFeatureLoading(true);
     setFeatureError(null);
+    const locales = result.locales.map((l) => l.locale);
+    const art: Record<string, string> = {};
+    const problems: string[] = [];
     try {
-      const res = await fetch("/api/feature-graphic", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ locales: result.locales.map((l) => l.locale), description: description.trim() }),
-      });
-      const data = (await res.json()) as { art: Record<string, string>; warnings: string[] } | { error: string };
-      if (!res.ok || "error" in data) throw new Error("error" in data ? data.error : `HTTP ${res.status}`);
-      setFeatureArt(data.art);
-      if (data.warnings.length) setFeatureError(data.warnings.join(" "));
-    } catch (err) {
-      setFeatureError((err as Error).message);
+      await inBatches(
+        locales,
+        3,
+        async (locale) => {
+          try {
+            const data = await postJson<{ art: Record<string, string>; warnings: string[] }>("/api/feature-graphic", {
+              locales: [locale],
+              description: description.trim(),
+            });
+            Object.assign(art, data.art);
+            problems.push(...data.warnings);
+          } catch (err) {
+            problems.push(`${locale}: ${(err as Error).message}`);
+          }
+        },
+        (done, total) => setFeatureProgress({ done, total }),
+      );
+      setFeatureArt(art);
+      if (problems.length) setFeatureError(problems.join(" "));
     } finally {
       setFeatureLoading(false);
+      setFeatureProgress(null);
     }
   };
 
@@ -502,6 +529,7 @@ export default function WorkspacePage() {
             onToggleLocale={toggleLocale}
             onGenerate={handleGenerate}
             loading={loading}
+            loadingLabel={progress ? `Writing ${progress.done} of ${progress.total} market${progress.total === 1 ? "" : "s"}` : undefined}
             mode={mode}
             result={result}
             layout={layout}
@@ -511,6 +539,7 @@ export default function WorkspacePage() {
             onMetadataChange={handleMetadataChange}
             featureArt={featureArt}
             featureLoading={featureLoading}
+            featureLabel={featureProgress ? `Painting ${featureProgress.done} of ${featureProgress.total}` : undefined}
             featureError={featureError}
             onGenerateFeatureArt={handleGenerateFeatureArt}
             onRegisterExport={registerExport}

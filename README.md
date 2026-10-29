@@ -30,7 +30,7 @@ cp .env.example .env.local   # leave META_API_KEY empty to use simulation mode
 npm run dev
 ```
 
-Open http://localhost:3000.
+Open http://localhost:3000. For a hosted version, see [Deploy](#deploy).
 
 ### Environment
 
@@ -135,6 +135,24 @@ Returns `{ mode, segments[][], locales[], warnings[], generatedAt }` where each 
 
 - **Interactive SAM 3.1 Segment Picker** — every upload is segmented immediately; detected UI regions are drawn as clickable bounding boxes. Pick up to 3 per screenshot and they peel off the phone as floating 3D badges on every locale's poster (live-updating, no regenerate needed).
 - **1-Click Fastlane ZIP Exporter** — one button renders every poster at 1080×1920 and writes the standard Fastlane `supply` tree, ready for `fastlane supply` straight into Google Play Console.
+
+## Deploy
+
+The app is a standard Next.js project and runs on Vercel's free tier.
+
+1. Import the GitHub repository in Vercel. No build settings are needed.
+2. Add the environment variables from `.env.example` in the project settings. For live models set at least `META_API_KEY` and `MOCK_MODE=false`. Leave them out to deploy the simulated demo.
+3. Deploy, then open the URL and press **Try the demo with sample apps**.
+
+Built to fit serverless limits:
+
+| Limit | How the app stays inside it |
+| --- | --- |
+| 4.5 MB request and response body | Screenshots upload as JPEG, Muse Image returns WebP, and the browser generates one market per request (typically under 0.5 MB each). |
+| 60 s function duration | One market per request (about 15 s); every model call times out at `AI_TIMEOUT_MS` (45 s) and falls back to simulated output instead of failing. |
+| Read-only, bundled files | The demo screenshots in `public/samples` are traced into the audit function via `outputFileTracingIncludes` in `next.config.ts`. |
+
+Exports (posters, feature graphics and the Fastlane ZIP) are rendered in the browser, so they do not touch the server limits.
 
 ## Layout
 

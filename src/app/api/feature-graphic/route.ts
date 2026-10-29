@@ -2,8 +2,8 @@ import { NextResponse } from "next/server";
 import { generateFeatureArtFor } from "@/lib/meta-ai";
 import { isLocaleCode } from "@/lib/locales";
 
-// One image request per market, in batches of AI_CONCURRENCY.
-export const maxDuration = 300;
+// The browser sends one market per request, so each call fits the 60 s free-tier limit.
+export const maxDuration = 60;
 
 /** POST { locales: string[], description: string } -> { art: { [locale]: dataUrl }, warnings, mode } */
 export async function POST(request: Request) {

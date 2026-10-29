@@ -30,6 +30,8 @@ export interface LocalizationStudioProps {
   onToggleLocale: (code: LocaleCode) => void;
   onGenerate: () => void;
   loading: boolean;
+  /** Progress text while generating, e.g. "Writing 2 of 5 markets". */
+  loadingLabel?: string;
   mode: "mock" | "live" | "unknown";
   result: GenerateAsoResponse | null;
   layout: LayoutStyle;
@@ -39,6 +41,7 @@ export interface LocalizationStudioProps {
   onMetadataChange: (locale: LocaleCode, field: keyof PlayStoreMetadata, value: string) => void;
   featureArt: Record<string, string>;
   featureLoading: boolean;
+  featureLabel?: string;
   featureError: string | null;
   onGenerateFeatureArt: () => void;
   onRegisterExport: (fn: (() => Promise<void>) | null) => void;
@@ -92,6 +95,7 @@ export function LocalizationStudio(p: LocalizationStudioProps) {
             onToggleLocale={p.onToggleLocale}
             onGenerate={p.onGenerate}
             loading={p.loading}
+            loadingLabel={p.loadingLabel}
             mode={p.mode}
           />
         </div>
@@ -100,6 +104,7 @@ export function LocalizationStudio(p: LocalizationStudioProps) {
             result={p.result}
             screenshots={p.screenshots}
             loading={p.loading}
+            loadingLabel={p.loadingLabel}
             appName={p.appName}
             layout={p.layout}
             onLayoutChange={p.onLayoutChange}
@@ -108,6 +113,7 @@ export function LocalizationStudio(p: LocalizationStudioProps) {
             onMetadataChange={p.onMetadataChange}
             featureArt={p.featureArt}
             featureLoading={p.featureLoading}
+            featureLabel={p.featureLabel}
             featureError={p.featureError}
             onGenerateFeatureArt={p.onGenerateFeatureArt}
             onRegisterExport={p.onRegisterExport}

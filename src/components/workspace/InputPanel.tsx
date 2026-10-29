@@ -24,6 +24,7 @@ interface Props {
   onToggleLocale: (code: LocaleCode) => void;
   onGenerate: () => void;
   loading: boolean;
+  loadingLabel?: string;
   mode: "mock" | "live" | "unknown";
 }
 
@@ -40,6 +41,7 @@ export function InputPanel({
   onToggleLocale,
   onGenerate,
   loading,
+  loadingLabel,
 }: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [dragOver, setDragOver] = useState(false);
@@ -267,7 +269,7 @@ export function InputPanel({
 
       <div className="border-t border-line px-5 py-4">
         <Button variant="primary" size="lg" block loading={loading} disabled={missing.length > 0} onClick={onGenerate}>
-          {loading ? "Generating" : "Generate listing"}
+          {loading ? (loadingLabel ?? "Generating") : "Generate listing"}
         </Button>
         <p className="mt-2 text-center text-xs text-muted">
           {missing.length ? `Add ${missingText} to continue.` : `${selectedLocales.length} market${selectedLocales.length === 1 ? "" : "s"}, ${screenshots.length} poster${screenshots.length === 1 ? "" : "s"} each.`}

@@ -9,6 +9,7 @@ import { LocalizationStudio, type StudioHandoff } from "@/components/Localizatio
 import { StoreSimulator } from "@/components/StoreSimulator";
 import { MAX_BADGES_PER_SHOT, type ShotSegmentation } from "@/components/workspace/SegmentPicker";
 import type { AsoAnalysis } from "@/lib/aso-analytics";
+import { appIdFromInput, clearBaseline, loadBaseline, saveBaseline, type AuditBaseline } from "@/lib/audit-baseline";
 import { loadImage, type UploadedScreenshot } from "@/lib/image";
 import type {
   GenerateAsoRequest,
@@ -81,6 +82,7 @@ export default function WorkspacePage() {
   const [analysis, setAnalysis] = useState<AsoAnalysis | null>(null);
   const [analyzing, setAnalyzing] = useState(false);
   const [analysisError, setAnalysisError] = useState<string | null>(null);
+  const [baseline, setBaseline] = useState<AuditBaseline | null>(null);
   const [handoff, setHandoff] = useState<StudioHandoff | null>(null);
 
   /* ----------------------------- Tab 2 state ----------------------------- */
@@ -125,7 +127,11 @@ export default function WorkspacePage() {
     setAnalyzing(true);
     setAnalysisError(null);
     try {
-      setAnalysis(await postJson<AsoAnalysis>("/api/analyze-aso", input));
+      // The audit the owner last fixed from, so this run can report what changed since then.
+      const prev = loadBaseline(input.demo ? null : appIdFromInput(input.appId), !!input.demo);
+      const res = await postJson<AsoAnalysis>("/api/analyze-aso", { ...input, previousWeaknesses: prev?.weaknesses });
+      setAnalysis(res);
+      setBaseline(prev && prev.auditedAt < res.generatedAt ? prev : null);
     } catch (err) {
       setAnalysisError((err as Error).message);
     } finally {
@@ -136,6 +142,7 @@ export default function WorkspacePage() {
   /** "Fix & Localize Weaknesses": carry keywords, weaknesses and the weakest screenshots into Tab 2. */
   const handleFixAndLocalize = async () => {
     if (!analysis) return;
+    saveBaseline(analysis);
     setHandoff({
       sourceApp: analysis.app.title,
       keywords: analysis.keywordGaps.map((g) => g.keyword),
@@ -216,8 +223,8 @@ export default function WorkspacePage() {
       const first = await postJson<GenerateAsoResponse>("/api/generate-aso", { ...base, locales: [locales[0]] });
       parts[0] = first;
       setProgress({ done: 1, total: locales.length });
-      // Reuse the regions from the first market (at most three badges per screenshot).
-      const segments = first.segments.map((list) => list.slice(0, 3));
+      // Reuse the regions from the first market (at most MAX_BADGES_PER_SHOT per screenshot).
+      const segments = first.segments.map((list) => list.slice(0, MAX_BADGES_PER_SHOT));
       await inBatches(
         locales.slice(1),
         3,
@@ -511,6 +518,11 @@ export default function WorkspacePage() {
             error={analysisError}
             onAnalyze={handleAnalyze}
             onFixAndLocalize={handleFixAndLocalize}
+            baseline={baseline}
+            onClearBaseline={() => {
+              if (analysis) clearBaseline(analysis);
+              setBaseline(null);
+            }}
           />
         </div>
         <div className={cn("lg:h-full lg:min-h-0", tab === "studio" ? "tab-enter" : "hidden")}>

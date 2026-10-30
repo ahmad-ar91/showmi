@@ -1,11 +1,12 @@
 "use client";
 
 import { Spinner, Tag, TextButton } from "@/components/ui";
+import { MAX_CALLOUTS } from "@/lib/creative-rules";
 import type { UploadedScreenshot } from "@/lib/image";
 import type { Segment } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
-export const MAX_BADGES_PER_SHOT = 3;
+export const MAX_BADGES_PER_SHOT = MAX_CALLOUTS;
 
 export interface ShotSegmentation {
   status: "detecting" | "ready" | "error";

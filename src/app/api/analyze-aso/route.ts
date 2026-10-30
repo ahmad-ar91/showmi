@@ -7,13 +7,13 @@ import { SAMPLE_APP_ID, SAMPLE_COMPETITOR_ID, isSampleApp, sampleListing } from 
 export const maxDuration = 60;
 
 /**
- * POST { appId, competitorAppId?, demo?: boolean }
+ * POST { appId, competitorAppId?, demo?: boolean, previousWeaknesses?: string[] }
  * The competitor is optional: without one, keyword findings become category opportunities.
  * Pulls the listings from Google Play, or uses the fictional sample apps when demo is true,
  * then runs the visual (segmentation) and semantic (text model) audit.
  */
 export async function POST(request: Request) {
-  let body: { appId?: unknown; competitorAppId?: unknown; demo?: unknown };
+  let body: { appId?: unknown; competitorAppId?: unknown; demo?: unknown; previousWeaknesses?: unknown };
   try {
     body = await request.json();
   } catch {
@@ -37,7 +37,11 @@ export async function POST(request: Request) {
   try {
     const load = (id: string) => (isSampleApp(id) ? sampleListing(id) : fetchListing(id));
     const [app, competitor] = await Promise.all([load(appId), competitorAppId ? load(competitorAppId) : Promise.resolve(null)]);
-    const analysis = await auditListing(app, competitor, { screenshots: 2 });
+    // Weaknesses from the audit the owner acted on, so the model can say which ones are fixed.
+    const previousWeaknesses = Array.isArray(body.previousWeaknesses)
+      ? body.previousWeaknesses.filter((w): w is string => typeof w === "string").map((w) => w.slice(0, 400))
+      : [];
+    const analysis = await auditListing(app, competitor, { screenshots: 2, previousWeaknesses });
     return NextResponse.json(analysis);
   } catch (err) {
     console.error("[analyze-aso]", err);

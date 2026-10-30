@@ -11,6 +11,7 @@ import "server-only";
 import { getImageProvider, getSegmentProvider, getTextProvider, providerStatus } from "./ai/registry";
 import { enforceLimits, mockBackground, mockSegments, mockSpark, type SparkOutput } from "./ai/providers/mock";
 import type { DetectedBox } from "./ai/types";
+import { rulesBlock } from "./creative-rules";
 import { LOCALE_MAP } from "./locales";
 import type { GenerateAsoRequest, GenerateAsoResponse, LocaleCode, LocaleResult, Segment } from "./types";
 import { PLAY_LIMITS } from "./types";
@@ -133,7 +134,10 @@ Return ONLY valid JSON matching this TypeScript type:
   "posters": { "headline": string, "subheadline": string }[], // exactly ${n} entries, one per screenshot, headline <= 28 chars, subheadline <= 60 chars
   "culturalNote": string        // one sentence on cultural adaptation choices
 }
-All text must be written natively in ${loc.language} (not a literal translation), using local idioms and tone. ${loc.rtl ? "The language is right-to-left." : ""}`;
+All text must be written natively in ${loc.language} (not a literal translation), using local idioms and tone. ${loc.rtl ? "The language is right-to-left." : ""}
+Each poster headline and subheadline must follow the screenshot rules the audit scores against:
+${rulesBlock()}
+Look at what each attached screenshot actually shows and name that feature in its headline.`;
 
   const extras = [
     params.keywords?.length

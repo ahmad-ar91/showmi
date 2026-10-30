@@ -2,6 +2,7 @@
 
 import { forwardRef } from "react";
 import type { UploadedScreenshot } from "@/lib/image";
+import { MAX_CALLOUTS } from "@/lib/creative-rules";
 import { LOCALE_MAP } from "@/lib/locales";
 import { POSTER_HEIGHT, POSTER_WIDTH } from "@/lib/export";
 import type { LayoutStyle, LocaleCode, PosterCopy, Segment, TextPosition } from "@/lib/types";
@@ -44,13 +45,14 @@ export const PosterCanvas = forwardRef<HTMLDivElement, Props>(function PosterCan
   const phoneLeft = 180; // centre
   const phoneExtra = layout === "offset" ? 50 : 0;
 
-  // Floating 3D badge placement per layout (relative to poster). Alternate sides, up to 3 badges.
-  const badges = segments.slice(0, 3);
-  const cardWidth = badges.length === 3 ? 136 : 150;
+  // Floating 3D badge placement per layout (relative to poster). Alternate sides, up to MAX_CALLOUTS.
+  // Narrow cards hug the poster edge so they cover at most a quarter of the phone screen.
+  const badges = segments.slice(0, MAX_CALLOUTS);
+  const cardWidth = 124;
   const cardPositions = badges.map((_, i) => {
     const leftSide = rtl ? i % 2 === 1 : i % 2 === 0;
     const baseY = textTop ? 225 : 105;
-    const stepY = badges.length === 3 ? 135 : 200;
+    const stepY = 200;
     // 3D tilt: badges on the left face slightly right and vice-versa, like cards peeling off the screen.
     const yaw = leftSide ? 16 : -16;
     if (layout === "offset") {
@@ -58,7 +60,7 @@ export const PosterCanvas = forwardRef<HTMLDivElement, Props>(function PosterCan
       return { left: x, top: baseY + i * stepY, rotate: rtl ? 3 : -3, yaw: rtl ? -14 : 14 };
     }
     return {
-      left: leftSide ? 10 : POSTER_WIDTH - cardWidth - 10,
+      left: leftSide ? 8 : POSTER_WIDTH - cardWidth - 8,
       top: baseY + i * stepY,
       rotate: layout === "tilt" ? (leftSide ? -5 : 5) : 0,
       yaw,

@@ -21,6 +21,7 @@ import {
   scoreTone,
 } from "@/components/ui";
 import type { AsoAnalysis, VisualAudit } from "@/lib/aso-analytics";
+import type { AuditBaseline } from "@/lib/audit-baseline";
 import { PLAY_LIMITS } from "@/lib/types";
 
 interface Props {
@@ -29,6 +30,9 @@ interface Props {
   error: string | null;
   onAnalyze: (input: { appId: string; competitorAppId: string; demo?: boolean }) => void;
   onFixAndLocalize: () => void;
+  /** The audit the owner fixed from, when this app was audited and fixed before. */
+  baseline: AuditBaseline | null;
+  onClearBaseline: () => void;
 }
 
 const METRICS: { key: keyof AsoAnalysis["metrics"]; label: string; source: string }[] = [
@@ -69,7 +73,7 @@ function verdictLine(score: number): string {
   return "Weak listing. Start with the fixes below.";
 }
 
-export function AsoAnalytics({ analysis, loading, error, onAnalyze, onFixAndLocalize }: Props) {
+export function AsoAnalytics({ analysis, loading, error, onAnalyze, onFixAndLocalize, baseline, onClearBaseline }: Props) {
   const [appId, setAppId] = useState("");
   const [competitorId, setCompetitorId] = useState("");
 
@@ -147,6 +151,8 @@ export function AsoAnalytics({ analysis, loading, error, onAnalyze, onFixAndLoca
             </Notice>
           )}
 
+          {baseline && <SinceLastFix analysis={analysis} baseline={baseline} onClear={onClearBaseline} />}
+
           {/* Verdict */}
           <Card>
             <div className="grid lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)]">
@@ -221,7 +227,14 @@ export function AsoAnalytics({ analysis, loading, error, onAnalyze, onFixAndLoca
               }
             />
             <CardBody className="grid gap-8 md:grid-cols-3">
-              <FindingGroup title="Weaknesses" tone="bad" items={analysis.weaknesses} />
+              {analysis.weaknesses.length ? (
+                <FindingGroup title="Weaknesses" tone="bad" items={analysis.weaknesses} />
+              ) : (
+                <div>
+                  <p className="mb-3 text-[13px] font-medium text-ink">Weaknesses</p>
+                  <p className="text-[13px] leading-relaxed text-muted">None found. Every screenshot and text rule is met.</p>
+                </div>
+              )}
               <FindingGroup title="Recommendations" tone="accent" items={analysis.recommendations} />
               <FindingGroup title="Strengths" tone="ok" items={analysis.strengths} />
             </CardBody>
@@ -293,6 +306,60 @@ export function AsoAnalytics({ analysis, loading, error, onAnalyze, onFixAndLoca
 }
 
 /* ------------------------------- Pieces ------------------------------- */
+
+function Delta({ value }: { value: number }) {
+  if (value === 0) return <Tag>no change</Tag>;
+  return <Tag tone={value > 0 ? "ok" : "bad"}>{value > 0 ? `+${value}` : value}</Tag>;
+}
+
+/** Before and after, against the audit the owner last fixed from. */
+function SinceLastFix({ analysis, baseline, onClear }: { analysis: AsoAnalysis; baseline: AuditBaseline; onClear: () => void }) {
+  const date = new Date(baseline.auditedAt).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" });
+  const health = analysis.healthScore - baseline.healthScore;
+  return (
+    <Card>
+      <CardHeader
+        title="Since your last fix"
+        description={`Compared with the audit from ${date} that you fixed from. Both use the same rubric; a change of a few points can be noise.`}
+        actions={
+          <TextButton className="text-xs" onClick={onClear}>
+            Stop comparing
+          </TextButton>
+        }
+      />
+      <CardBody className="grid gap-8 md:grid-cols-[auto_minmax(0,1fr)_minmax(0,1fr)]">
+        <div>
+          <p className="text-xs text-muted">ASO health</p>
+          <p className="mt-1 flex items-center gap-3 font-display text-[26px] leading-none">
+            <span className="text-muted">{baseline.healthScore}</span>
+            <span className="text-faint">→</span>
+            <span>{analysis.healthScore}</span>
+            <Delta value={health} />
+          </p>
+        </div>
+        <ul>
+          {METRICS.map((m) => (
+            <li key={m.key} className="flex items-center justify-between gap-3 border-t border-line py-2 text-[13px] first:border-t-0 first:pt-0">
+              <span>{m.label}</span>
+              <span className="flex items-center gap-2 font-mono text-xs text-muted">
+                {baseline.metrics[m.key]} → {analysis.metrics[m.key]}
+                <Delta value={analysis.metrics[m.key] - baseline.metrics[m.key]} />
+              </span>
+            </li>
+          ))}
+        </ul>
+        <div>
+          <p className="mb-3 text-[13px] font-medium text-ink">Fixed since then</p>
+          {analysis.resolved.length ? (
+            <MarkedList tone="ok" items={analysis.resolved} />
+          ) : (
+            <p className="text-[13px] leading-relaxed text-muted">None of the earlier weaknesses is resolved yet.</p>
+          )}
+        </div>
+      </CardBody>
+    </Card>
+  );
+}
 
 function AppName({ listing }: { listing: NonNullable<AsoAnalysis["competitor"]> }) {
   return (

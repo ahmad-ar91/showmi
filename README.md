@@ -133,7 +133,9 @@ Returns `{ mode, segments[][], locales[], warnings[], generatedAt }` where each 
 
 ## Demo highlights
 
-- **Interactive SAM 3.1 Segment Picker** — every upload is segmented immediately; detected UI regions are drawn as clickable bounding boxes. Pick up to 3 per screenshot and they peel off the phone as floating 3D badges on every locale's poster (live-updating, no regenerate needed).
+- **Interactive SAM 3.1 Segment Picker** — every upload is segmented immediately; detected UI regions are drawn as clickable bounding boxes. Pick up to 2 per screenshot and they peel off the phone as floating 3D badges on every locale's poster (live-updating, no regenerate needed).
+- **One rulebook for making and judging** — `src/lib/creative-rules.ts` holds the screenshot rules (headline names the core feature, at most 2 callouts, 15–45% UI coverage) and a fixed scoring rubric. The poster generator writes to these rules and the audit scores against the same ones, so ShowMi does not flag its own output for following them.
+- **Before and after** — pressing Fix and localize saves that audit in the browser. The next audit of the same app shows the score change per metric and which earlier weaknesses are now fixed.
 - **1-Click Fastlane ZIP Exporter** — one button renders every poster at 1080×1920 and writes the standard Fastlane `supply` tree, ready for `fastlane supply` straight into Google Play Console.
 
 ## Deploy

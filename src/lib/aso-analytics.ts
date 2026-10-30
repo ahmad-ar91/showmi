@@ -8,6 +8,7 @@ import "server-only";
 import { getSegmentProvider, getTextProvider, providerStatus } from "./ai/registry";
 import { mockSegments } from "./ai/providers/mock";
 import { toDataUrl } from "./ai/types";
+import { BUSY_REGIONS, IDEAL_COVERAGE, SCORE_RUBRIC, clutterFrom, rulesBlock, unionCoverage } from "./creative-rules";
 import { refineDetections, UI_SEGMENT_PROMPTS } from "./meta-ai";
 import type { StoreListing } from "./play-store";
 import { PLAY_LIMITS, type Segment } from "./types";
@@ -72,6 +73,8 @@ export interface AsoAnalysis {
   weaknesses: string[];
   strengths: string[];
   recommendations: string[];
+  /** Weaknesses from the previous audit (sent by the client) that no longer apply. */
+  resolved: string[];
   /** Weakest screenshot indices, to be regenerated as posters in the studio. */
   weakScreenshots: number[];
   mode: "mock" | "live";
@@ -151,9 +154,9 @@ export function keywordGapHeuristic(app: StoreListing, competitor: StoreListing,
 }
 
 function visualStats(segments: Segment[]): Pick<VisualAudit, "clutterScore" | "coverage" | "focalPoint"> {
-  if (!segments.length) return { clutterScore: 15, coverage: 0, focalPoint: { x: 0.5, y: 0.45 } };
-  const coverage = Math.min(1, segments.reduce((s, g) => s + g.bbox.w * g.bbox.h, 0));
-  const clutterScore = Math.round(Math.min(100, segments.length * 11 + coverage * 55));
+  if (!segments.length) return { clutterScore: 0, coverage: 0, focalPoint: { x: 0.5, y: 0.45 } };
+  const coverage = unionCoverage(segments);
+  const clutterScore = clutterFrom(segments.length, coverage);
   let wx = 0;
   let wy = 0;
   let wsum = 0;
@@ -185,6 +188,7 @@ interface ModelVerdict {
   weaknesses: string[];
   strengths: string[];
   recommendations: string[];
+  resolved?: string[];
 }
 
 function mockVerdict(app: StoreListing, competitor: StoreListing | null, shots: number): ModelVerdict {
@@ -227,8 +231,9 @@ function mockVerdict(app: StoreListing, competitor: StoreListing | null, shots: 
 export async function auditListing(
   app: StoreListing,
   competitor: StoreListing | null,
-  opts: { screenshots?: number } = {},
+  opts: { screenshots?: number; previousWeaknesses?: string[] } = {},
 ): Promise<AsoAnalysis> {
+  const previous = (opts.previousWeaknesses ?? []).filter(Boolean).slice(0, 8);
   const status = providerStatus();
   const warnings: string[] = [];
   const shotCount = Math.min(opts.screenshots ?? 2, app.screenshots.length);
@@ -286,11 +291,18 @@ export async function auditListing(
           ? "high-intent keywords the competitor uses that we do not"
           : "high-intent keywords people search for in this category that our listing never uses; set competitorCount to 0"
       }
-  "weaknesses": string[],      // 3-5 specific, fixable weaknesses of OUR listing
+  "weaknesses": string[],      // 0-5 specific, fixable weaknesses of OUR listing, most costly first
   "strengths": string[],       // 2-3
-  "recommendations": string[]  // 3-5 actionable fixes, most impactful first
+  "recommendations": string[], // one actionable fix per weakness, same order
+  "resolved": string[]         // items of PREVIOUS WEAKNESSES that no longer apply, copied verbatim
 }
-Visual clarity must consider the detected UI regions per screenshot (count and coverage are given). Be critical and specific.`;
+Screenshot rules (the same rules ShowMi's poster generator follows):
+${rulesBlock()}
+
+${SCORE_RUBRIC}
+
+List a weakness only when it breaks one of these rules or clearly costs installs; return an empty list when nothing does. Do not invent issues to fill the list.
+Visual clarity must use the detected UI regions per screenshot: ${Math.round(IDEAL_COVERAGE.min * 100)}-${Math.round(IDEAL_COVERAGE.max * 100)}% coverage with up to ${BUSY_REGIONS} regions is ideal. Be specific.`;
       const user = `OUR APP (${app.appId})
 Title: ${app.title}
 Short: ${app.summary}
@@ -319,12 +331,15 @@ ${
               .map((g) => g.keyword)
               .join(", ")}`
           : "Infer the keyword opportunities from what this app does and how people search its category. Never suggest a term that does not fit this specific app."
-      }`;
+      }
+
+PREVIOUS WEAKNESSES (from the last audit, before the owner made changes):
+${previous.length ? previous.map((w) => `- ${w}`).join("\n") : "none"}`;
       verdict = await textProvider.chatJson<ModelVerdict>({
         system,
         user,
         images: shots.filter(Boolean),
-        temperature: 0.4,
+        temperature: 0.2,
       });
       verdict.keywordGaps = (verdict.keywordGaps ?? []).slice(0, 10);
       verdict.visualCritiques = verdict.visualCritiques ?? [];
@@ -363,7 +378,16 @@ ${
     };
   });
 
-  const weakScreenshots = [...visual].sort((a, b) => a.score - b.score).slice(0, 1).map((v) => v.index);
+  // Only flag a weakest screenshot when it actually breaks a rule (below the rubric's "minor issue" band).
+  const weakScreenshots = [...visual]
+    .sort((a, b) => a.score - b.score)
+    .slice(0, 1)
+    .filter((v) => v.score < 75)
+    .map((v) => v.index);
+  const current = new Set((verdict.weaknesses ?? []).map((w) => w.trim().toLowerCase()));
+  const resolved = (verdict.resolved ?? previous.filter((w) => !current.has(w.trim().toLowerCase())))
+    .filter((w) => previous.includes(w))
+    .slice(0, 8);
 
   return {
     app,
@@ -376,6 +400,7 @@ ${
     weaknesses: verdict.weaknesses ?? [],
     strengths: verdict.strengths ?? [],
     recommendations: verdict.recommendations ?? [],
+    resolved,
     weakScreenshots,
     mode: status.mode,
     warnings,

@@ -8,7 +8,20 @@ import "server-only";
 import { getSegmentProvider, getTextProvider, providerStatus } from "./ai/registry";
 import { mockSegments } from "./ai/providers/mock";
 import { toDataUrl } from "./ai/types";
-import { BUSY_REGIONS, IDEAL_COVERAGE, SCORE_RUBRIC, clutterFrom, rulesBlock, unionCoverage } from "./creative-rules";
+import {
+  LISTING_CHECKS,
+  SHOT_CHECKS,
+  checkLabel,
+  checklistBlock,
+  clutterFrom,
+  listingMetrics,
+  rulesBlock,
+  shotScore,
+  unionCoverage,
+  type Checks,
+  type ListingCheck,
+  type ShotCheck,
+} from "./creative-rules";
 import { refineDetections, UI_SEGMENT_PROMPTS } from "./meta-ai";
 import type { StoreListing } from "./play-store";
 import { PLAY_LIMITS, type Segment } from "./types";
@@ -44,8 +57,10 @@ export interface VisualAudit {
   coverage: number;
   /** Normalised centre of visual weight, 0..1. */
   focalPoint: { x: number; y: number };
+  /** Yes/no rule checks the score is computed from. */
+  checks: Checks<ShotCheck>;
   critique: string;
-  /** 0..100 visual effectiveness score. */
+  /** 0..100: 80 from the checks, 20 from region coverage and count. */
   score: number;
 }
 
@@ -73,8 +88,10 @@ export interface AsoAnalysis {
   weaknesses: string[];
   strengths: string[];
   recommendations: string[];
-  /** Weaknesses from the previous audit (sent by the client) that no longer apply. */
+  /** Checks that failed in the audit the owner fixed from and pass now, as readable labels. */
   resolved: string[];
+  /** Ids of the checks that failed ("listing:explicitCta", "shot0:namesFeature"); see checkLabel. */
+  failedChecks: string[];
   /** Weakest screenshot indices, to be regenerated as posters in the studio. */
   weakScreenshots: number[];
   mode: "mock" | "live";
@@ -179,51 +196,209 @@ function weightedHealth(m: AsoMetrics): number {
   );
 }
 
-/* ----------------------------------- Mock ----------------------------------- */
+/* ----------------------------------- Model ----------------------------------- */
 
-interface ModelVerdict {
-  metrics: Omit<AsoMetrics, "metadataCompliance">;
-  visualCritiques: { index: number; critique: string; score: number }[];
+interface ShotVerdict {
+  index: number;
+  checks: Checks<ShotCheck>;
+  critique: string;
+}
+
+interface ListingVerdict {
+  checks: Checks<ListingCheck>;
   keywordGaps: KeywordGap[];
   weaknesses: string[];
   strengths: string[];
   recommendations: string[];
-  resolved?: string[];
 }
 
-function mockVerdict(app: StoreListing, competitor: StoreListing | null, shots: number): ModelVerdict {
+function mockShots(shots: number): ShotVerdict[] {
+  return Array.from({ length: shots }, (_, i) => ({
+    index: i,
+    checks: { namesFeature: false, proofPoint: i === 0, readable: true, calloutsClean: true },
+    critique:
+      i === 0
+        ? "Strong hero, but the in-app greeting stands in for a headline; name the core feature above the fold."
+        : "No marketing headline or proof point; isolate one feature as a callout and darken the backdrop.",
+  }));
+}
+
+function mockListing(app: StoreListing, competitor: StoreListing | null): ListingVerdict {
   const gaps = competitor ? keywordGapHeuristic(app, competitor) : keywordOpportunityHeuristic(app);
   const hasCta = /\b(download|start|try|join|get started|learn now)\b/i.test(`${app.summary} ${app.description}`);
   return {
-    metrics: {
-      keywordOptimization: Math.max(35, 88 - gaps.length * 5),
-      visualClarity: 68,
-      culturalFit: 62,
-      ctaStrength: hasCta ? 74 : 48,
+    checks: {
+      titleKeyword: true,
+      shortHighIntent: gaps.length < 4,
+      noStuffing: true,
+      fullCoversFeatures: true,
+      nativeTone: true,
+      marketFit: false,
+      clearBenefit: true,
+      explicitCta: hasCta,
+      closingCta: false,
+      socialProof: app.ratings > 1000,
     },
-    visualCritiques: Array.from({ length: shots }, (_, i) => ({
-      index: i,
-      critique:
-        i === 0
-          ? "Strong hero, but the headline competes with dense UI; lift the key value prop above the fold."
-          : "Too many equal-weight elements; isolate one feature as a floating badge and darken the backdrop.",
-      score: i === 0 ? 72 : 54,
-    })),
     keywordGaps: gaps,
     weaknesses: [
       competitor
         ? `Short description does not mention ${gaps[0]?.keyword ?? "core use-case"} which the competitor leads with`
         : `Short description misses the high-intent term "${gaps[0]?.keyword ?? "free"}"`,
-      "Screenshots rely on in-app text rather than localized marketing headlines",
       hasCta ? "CTA appears only deep in the full description" : "No clear call-to-action in the short description",
     ],
     strengths: [`High rating (${app.score.toFixed(1)}) and strong install base`, "Title already contains the primary category keyword"],
     recommendations: [
       `Add "${gaps[0]?.keyword ?? "learn"}" and "${gaps[1]?.keyword ?? "free"}" to the short description`,
-      "Regenerate screenshot 2 as a poster with one floating UI badge and a localized headline",
       "Localize title and short description for ja-JP, id-ID and es-ES to capture non-English demand",
     ],
   };
+}
+
+/** Screenshots only: yes/no checks and a short critique each. Runs beside the listing call. */
+async function askShots(app: StoreListing, shots: string[]): Promise<ShotVerdict[]> {
+  const system = `You are a senior App Store Optimization (ASO) analyst reviewing Google Play screenshots against these rules:
+${rulesBlock()}
+
+Return ONLY JSON:
+{ "screenshots": [ { "index": number, "checks": { ${Object.keys(SHOT_CHECKS)
+    .map((k) => `"${k}": boolean`)
+    .join(", ")} }, "critique": string } ] }
+One entry per attached screenshot, in order, index starting at 0. Answer each check strictly:
+${checklistBlock(SHOT_CHECKS)}
+The critique is at most two concrete sentences about the failed checks, or one sentence on what works when all pass.`;
+  const user = `App: ${app.title}\nWhat it does: ${app.summary}\nReview the ${shots.length} attached screenshots.`;
+  const out = await getTextProvider().chatJson<{ screenshots?: ShotVerdict[] }>({
+    system,
+    user,
+    images: shots,
+    temperature: 0,
+    // Yes/no answers need little reasoning; "low" roughly halves the time of a full run.
+    reasoning: "low",
+  });
+  const list = (out.screenshots ?? []).map((s) => ({ ...s, index: Number(s.index), checks: s.checks ?? {} }));
+  // Models sometimes number screenshots from 1; normalise to 0-based.
+  if (list.length && list.every((s) => s.index >= 1)) list.forEach((s) => (s.index -= 1));
+  return list;
+}
+
+/**
+ * Checks about something being present in the copy. They pass only with a quote that really
+ * occurs in our listing, which grounds the answer and keeps borderline cases from flipping.
+ */
+const QUOTED_CHECKS: ListingCheck[] = ["titleKeyword", "shortHighIntent", "clearBenefit", "explicitCta", "closingCta", "socialProof"];
+
+const squash = (t: string) => t.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ").trim();
+
+function verifiedChecks(raw: Record<string, unknown> | undefined, app: StoreListing): Checks<ListingCheck> {
+  const text = squash(`${app.title} ${app.summary} ${app.description}`);
+  const out: Checks<ListingCheck> = {};
+  for (const k of Object.keys(LISTING_CHECKS) as ListingCheck[]) {
+    const v = raw?.[k];
+    const answer = typeof v === "object" && v !== null ? (v as { pass?: unknown; quote?: unknown }) : { pass: v };
+    if (answer.pass !== true) out[k] = false;
+    else if (!QUOTED_CHECKS.includes(k)) out[k] = true;
+    else {
+      const quote = typeof answer.quote === "string" ? squash(answer.quote) : "";
+      out[k] = quote.length > 0 && text.includes(quote);
+    }
+  }
+  return out;
+}
+
+/** Listing text only (no images): yes/no checks, keyword gaps and findings tied to failed checks. */
+async function askListing(app: StoreListing, competitor: StoreListing | null): Promise<ListingVerdict> {
+  const system = `You are a senior App Store Optimization (ASO) analyst. ${
+    competitor ? "Compare OUR Google Play listing with a COMPETITOR" : "Audit OUR Google Play listing against best practice for its category"
+  } and return ONLY JSON:
+{
+  "checks": { ${(Object.keys(LISTING_CHECKS) as ListingCheck[])
+    .map((k) => (QUOTED_CHECKS.includes(k) ? `"${k}": { "pass": boolean, "quote": string }` : `"${k}": { "pass": boolean }`))
+    .join(", ")} },
+  "keywordGaps": [ { "keyword": string, "competitorCount": number, "difficulty": 1-100, "relevance": 1-100, "placement": "title"|"short"|"full" } ], // 6-10 ${
+    competitor
+      ? "high-intent keywords the competitor uses that we do not"
+      : "high-intent keywords people search for in this category that our listing never uses; set competitorCount to 0"
+  }
+  "weaknesses": string[],      // one per failed check, most costly first, at most 5; empty when every check passes
+  "strengths": string[],       // 2-3
+  "recommendations": string[]  // one actionable fix per weakness, same order
+}
+Answer each check strictly about OUR listing:
+${checklistBlock(LISTING_CHECKS)}
+For checks with a "quote", copy the exact words from OUR listing that satisfy it (empty when it fails); a pass without a real quote counts as a fail.
+Do not invent issues beyond the failed checks and the keyword gaps.`;
+  const user = `OUR APP (${app.appId})
+Title: ${app.title}
+Short: ${app.summary}
+Rating: ${app.score} (${app.ratings} ratings), installs ${app.installs}
+Full description:
+${app.description.slice(0, 3500)}
+
+${
+  competitor
+    ? `COMPETITOR (${competitor.appId})
+Title: ${competitor.title}
+Short: ${competitor.summary}
+Rating: ${competitor.score} (${competitor.ratings} ratings), installs ${competitor.installs}
+Full description:
+${competitor.description.slice(0, 3500)}
+
+Heuristic keyword gaps for reference: ${keywordGapHeuristic(app, competitor)
+        .map((g) => g.keyword)
+        .join(", ")}`
+    : `CATEGORY: ${app.genre || "unknown"} (no competitor given; judge against strong listings in this category)
+Infer the keyword opportunities from what this app does and how people search its category. Never suggest a term that does not fit this specific app.`
+}`;
+  const out = await getTextProvider().chatJson<Omit<ListingVerdict, "checks"> & { checks?: Record<string, unknown> }>({
+    system,
+    user,
+    temperature: 0,
+    reasoning: "low",
+  });
+  return {
+    checks: verifiedChecks(out.checks, app),
+    keywordGaps: (out.keywordGaps ?? []).slice(0, 10),
+    weaknesses: out.weaknesses ?? [],
+    strengths: out.strengths ?? [],
+    recommendations: out.recommendations ?? [],
+  };
+}
+
+/* ----------------------------------- Voting ----------------------------------- */
+
+/** Asks the same question several times in parallel and keeps every answer that came back. */
+async function askSeveral<T>(times: number, ask: () => Promise<T>): Promise<T[]> {
+  const settled = await Promise.allSettled(Array.from({ length: times }, ask));
+  const ok = settled.flatMap((r) => (r.status === "fulfilled" ? [r.value] : []));
+  if (!ok.length) throw (settled[0] as PromiseRejectedResult).reason;
+  return ok;
+}
+
+/** Each check passes when most answers say it passes; a borderline check no longer flips between audits. */
+function majority<K extends string>(answers: Checks<K>[], keys: K[]): Checks<K> {
+  return Object.fromEntries(keys.map((k) => [k, answers.filter((c) => c[k] === true).length * 2 > answers.length])) as Checks<K>;
+}
+
+/** The answer that agrees with the majority on the most checks, used for its wording. */
+function closest<T, K extends string>(items: T[], checksOf: (t: T) => Checks<K>, vote: Checks<K>, keys: K[]): T {
+  const agree = (t: T) => keys.filter((k) => (checksOf(t)[k] === true) === vote[k]).length;
+  return [...items].sort((a, b) => agree(b) - agree(a))[0];
+}
+
+function voteListing(runs: ListingVerdict[]): ListingVerdict {
+  const keys = Object.keys(LISTING_CHECKS) as ListingCheck[];
+  const checks = majority(runs.map((r) => r.checks), keys);
+  return { ...closest(runs, (r) => r.checks, checks, keys), checks };
+}
+
+function voteShots(runs: ShotVerdict[][], shots: number): ShotVerdict[] {
+  const keys = Object.keys(SHOT_CHECKS) as ShotCheck[];
+  return Array.from({ length: shots }, (_, i) => {
+    const answers = runs.flatMap((r) => r.filter((s) => s.index === i));
+    if (!answers.length) return null;
+    const checks = majority(answers.map((a) => a.checks), keys);
+    return { index: i, checks, critique: closest(answers, (a) => a.checks, checks, keys).critique };
+  }).filter((s): s is ShotVerdict => s !== null);
 }
 
 /* ----------------------------------- Audit ----------------------------------- */
@@ -231,12 +406,12 @@ function mockVerdict(app: StoreListing, competitor: StoreListing | null, shots: 
 export async function auditListing(
   app: StoreListing,
   competitor: StoreListing | null,
-  opts: { screenshots?: number; previousWeaknesses?: string[] } = {},
+  opts: { screenshots?: number; previousFailedChecks?: string[] } = {},
 ): Promise<AsoAnalysis> {
-  const previous = (opts.previousWeaknesses ?? []).filter(Boolean).slice(0, 8);
   const status = providerStatus();
   const warnings: string[] = [];
-  const shotCount = Math.min(opts.screenshots ?? 2, app.screenshots.length);
+  const wanted = opts.screenshots ?? (Number(process.env.AUDIT_SCREENSHOTS) || 4);
+  const shotCount = Math.min(Math.max(1, Math.min(8, wanted)), app.screenshots.length);
 
   // 1. Screenshots → data URLs (needed for both the vision model and the studio hand-off)
   const shots = await Promise.all(
@@ -250,10 +425,10 @@ export async function auditListing(
     }),
   );
 
-  // 2. Visual teardown via the segmentation provider
+  // 2. Segmentation, the screenshot checks and the listing checks all run at once.
   const segProvider = getSegmentProvider();
-  const segmentsPerShot: Segment[][] = await Promise.all(
-    shots.map(async (dataUrl, i) => {
+  const segmentation = Promise.all(
+    shots.map(async (dataUrl, i): Promise<Segment[]> => {
       if (segProvider.name === "mock" || !dataUrl) return mockSegments(i);
       try {
         const boxes = await segProvider.segment({ imageDataUrl: dataUrl, prompts: [...UI_SEGMENT_PROMPTS, "text"], hint: i });
@@ -267,116 +442,75 @@ export async function auditListing(
     }),
   );
 
-  // 3. Deterministic compliance
+  const textProvider = getTextProvider();
+  const live = textProvider.name !== "mock";
+  // Every check is asked AUDIT_VOTES times in parallel and decided by majority.
+  const votes = Math.max(1, Math.min(5, Number(process.env.AUDIT_VOTES) || 3));
+  const shotVerdicts = (
+    live && shots.some(Boolean)
+      ? askSeveral(votes, () => askShots(app, shots.filter(Boolean))).then((runs) => voteShots(runs, shots.length))
+      : Promise.resolve(mockShots(shots.length))
+  ).catch(
+    (err) => {
+      warnings.push(`${textProvider.model} (screenshots): ${(err as Error).message} (used simulated checks)`);
+      return mockShots(shots.length);
+    },
+  );
+  const listingVerdict = (
+    live ? askSeveral(votes, () => askListing(app, competitor)).then(voteListing) : Promise.resolve(mockListing(app, competitor))
+  ).catch((err) => {
+    warnings.push(`${textProvider.model} (listing): ${(err as Error).message} (used simulated checks)`);
+    return mockListing(app, competitor);
+  });
+
+  const [segmentsPerShot, shotList, listing] = await Promise.all([segmentation, shotVerdicts, listingVerdict]);
+
+  // 3. Every score is computed here from the checks and measurements.
   const compliance = checkCompliance(app);
   const metadataCompliance = Math.round((compliance.filter((c) => c.ok).length / compliance.length) * 100);
-
-  // 4. Model verdict (scores, critique, keyword gaps)
-  const textProvider = getTextProvider();
-  let verdict: ModelVerdict;
-  if (textProvider.name === "mock") {
-    verdict = mockVerdict(app, competitor, shots.length);
-  } else {
-    try {
-      const system = `You are a senior App Store Optimization (ASO) analyst. ${
-        competitor
-          ? "Compare OUR Google Play listing with a COMPETITOR"
-          : "Audit OUR Google Play listing against best practice for its category"
-      } and return ONLY JSON:
-{
-  "metrics": { "keywordOptimization": 0-100, "visualClarity": 0-100, "culturalFit": 0-100, "ctaStrength": 0-100 },
-  "visualCritiques": [ { "index": number, "critique": string (<= 2 sentences, concrete), "score": 0-100 } ], // one per attached screenshot, in order
-  "keywordGaps": [ { "keyword": string, "competitorCount": number, "difficulty": 1-100, "relevance": 1-100, "placement": "title"|"short"|"full" } ], // 6-10 ${
-        competitor
-          ? "high-intent keywords the competitor uses that we do not"
-          : "high-intent keywords people search for in this category that our listing never uses; set competitorCount to 0"
-      }
-  "weaknesses": string[],      // 0-5 specific, fixable weaknesses of OUR listing, most costly first
-  "strengths": string[],       // 2-3
-  "recommendations": string[], // one actionable fix per weakness, same order
-  "resolved": string[]         // items of PREVIOUS WEAKNESSES that no longer apply, copied verbatim
-}
-Screenshot rules (the same rules ShowMi's poster generator follows):
-${rulesBlock()}
-
-${SCORE_RUBRIC}
-
-List a weakness only when it breaks one of these rules or clearly costs installs; return an empty list when nothing does. Do not invent issues to fill the list.
-Visual clarity must use the detected UI regions per screenshot: ${Math.round(IDEAL_COVERAGE.min * 100)}-${Math.round(IDEAL_COVERAGE.max * 100)}% coverage with up to ${BUSY_REGIONS} regions is ideal. Be specific.`;
-      const user = `OUR APP (${app.appId})
-Title: ${app.title}
-Short: ${app.summary}
-Rating: ${app.score} (${app.ratings} ratings), installs ${app.installs}
-Full description:
-${app.description.slice(0, 3500)}
-
-${
-        competitor
-          ? `COMPETITOR (${competitor.appId})
-Title: ${competitor.title}
-Short: ${competitor.summary}
-Rating: ${competitor.score} (${competitor.ratings} ratings), installs ${competitor.installs}
-Full description:
-${competitor.description.slice(0, 3500)}
-`
-          : `CATEGORY: ${app.genre || "unknown"} (no competitor given; judge against strong listings in this category)
-`
-      }
-DETECTED UI REGIONS (segmentation provider ${segProvider.model}):
-${segmentsPerShot.map((s, i) => `screenshot ${i + 1}: ${s.length} regions, coverage ${(visualStats(s).coverage * 100).toFixed(0)}%, labels ${s.map((g) => g.label).join(", ")}`).join("\n")}
-
-${
-        competitor
-          ? `Heuristic keyword gaps for reference: ${keywordGapHeuristic(app, competitor)
-              .map((g) => g.keyword)
-              .join(", ")}`
-          : "Infer the keyword opportunities from what this app does and how people search its category. Never suggest a term that does not fit this specific app."
-      }
-
-PREVIOUS WEAKNESSES (from the last audit, before the owner made changes):
-${previous.length ? previous.map((w) => `- ${w}`).join("\n") : "none"}`;
-      verdict = await textProvider.chatJson<ModelVerdict>({
-        system,
-        user,
-        images: shots.filter(Boolean),
-        temperature: 0.2,
-      });
-      verdict.keywordGaps = (verdict.keywordGaps ?? []).slice(0, 10);
-      verdict.visualCritiques = verdict.visualCritiques ?? [];
-    } catch (err) {
-      warnings.push(`${textProvider.model}: ${(err as Error).message} (used simulated analysis)`);
-      verdict = mockVerdict(app, competitor, shots.length);
-    }
-  }
-
-  const clamp = (n: unknown, d = 50) => (typeof n === "number" && Number.isFinite(n) ? Math.max(0, Math.min(100, Math.round(n))) : d);
-  const metrics: AsoMetrics = {
-    keywordOptimization: clamp(verdict.metrics?.keywordOptimization),
-    visualClarity: clamp(verdict.metrics?.visualClarity),
-    culturalFit: clamp(verdict.metrics?.culturalFit),
-    ctaStrength: clamp(verdict.metrics?.ctaStrength),
-    metadataCompliance,
-  };
-
-  // Models sometimes number screenshots from 1; normalise to 0-based before matching.
-  const critiques = verdict.visualCritiques.map((c) => ({ ...c, index: Number(c.index) }));
-  const oneBased = critiques.length > 0 && critiques.every((c) => c.index >= 1) && !critiques.some((c) => c.index === 0);
-  if (oneBased) critiques.forEach((c) => (c.index -= 1));
 
   const visual: VisualAudit[] = shots.map((dataUrl, i) => {
     const segments = segmentsPerShot[i];
     const stats = visualStats(segments);
-    const crit = critiques.find((c) => c.index === i) ?? critiques[i];
+    const verdict = shotList.find((s) => s.index === i) ?? shotList[i];
+    const checks = verdict?.checks ?? {};
     return {
       index: i,
       screenshotUrl: app.screenshots[i],
       screenshotDataUrl: dataUrl,
       segments,
       ...stats,
-      critique: crit?.critique ?? "No critique available.",
-      score: clamp(crit?.score, Math.max(20, 100 - stats.clutterScore)),
+      checks,
+      critique: verdict?.critique || "No critique available.",
+      score: shotScore(checks, segments.length, stats.coverage),
     };
   });
+
+  // Screenshot findings come from the failed screenshot checks, so they match the scores exactly.
+  const shotFindings = (Object.keys(SHOT_CHECKS) as ShotCheck[]).flatMap((k) => {
+    const failing = visual.filter((v) => v.checks[k] !== true).map((v) => v.index + 1);
+    if (!failing.length) return [];
+    const which = `${failing.length > 1 ? "Screenshots" : "Screenshot"} ${failing.join(", ")}`;
+    return [{ weakness: `${which} miss the rule: ${SHOT_CHECKS[k].toLowerCase()}`, fix: `Rebuild ${which.toLowerCase()} in the studio so that ${SHOT_CHECKS[k].charAt(0).toLowerCase()}${SHOT_CHECKS[k].slice(1)}` }];
+  }).slice(0, 2);
+  const textCount = Math.max(0, 5 - shotFindings.length);
+
+  const strongGaps = listing.keywordGaps.filter((g) => g.relevance >= 70).length;
+  const metrics: AsoMetrics = {
+    ...listingMetrics(listing.checks, strongGaps),
+    visualClarity: visual.length ? Math.round(visual.reduce((s, v) => s + v.score, 0) / visual.length) : 0,
+    metadataCompliance,
+  };
+
+  const failedChecks = [
+    ...(Object.keys(LISTING_CHECKS) as ListingCheck[]).filter((k) => listing.checks[k] !== true).map((k) => `listing:${k}`),
+    ...visual.flatMap((v) =>
+      (Object.keys(SHOT_CHECKS) as ShotCheck[]).filter((k) => v.checks[k] !== true).map((k) => `shot${v.index}:${k}`),
+    ),
+  ];
+  // A check that failed in the audit the owner fixed from and passes now.
+  const failedNow = new Set(failedChecks);
+  const resolved = (opts.previousFailedChecks ?? []).filter((id) => /^(listing|shot\d):\w+$/.test(id) && !failedNow.has(id)).map(checkLabel);
 
   // Only flag a weakest screenshot when it actually breaks a rule (below the rubric's "minor issue" band).
   const weakScreenshots = [...visual]
@@ -384,10 +518,10 @@ ${previous.length ? previous.map((w) => `- ${w}`).join("\n") : "none"}`;
     .slice(0, 1)
     .filter((v) => v.score < 75)
     .map((v) => v.index);
-  const current = new Set((verdict.weaknesses ?? []).map((w) => w.trim().toLowerCase()));
-  const resolved = (verdict.resolved ?? previous.filter((w) => !current.has(w.trim().toLowerCase())))
-    .filter((w) => previous.includes(w))
-    .slice(0, 8);
+  // Only the screenshots the studio may rebuild (the three weakest) travel as data URLs;
+  // the rest are shown from the Play CDN, which keeps the response well under 4.5 MB.
+  const keepData = new Set([...visual].sort((a, b) => a.score - b.score).slice(0, 3).map((v) => v.index));
+  for (const v of visual) if (!keepData.has(v.index)) v.screenshotDataUrl = "";
 
   return {
     app,
@@ -396,10 +530,11 @@ ${previous.length ? previous.map((w) => `- ${w}`).join("\n") : "none"}`;
     metrics,
     compliance,
     visual,
-    keywordGaps: verdict.keywordGaps,
-    weaknesses: verdict.weaknesses ?? [],
-    strengths: verdict.strengths ?? [],
-    recommendations: verdict.recommendations ?? [],
+    keywordGaps: listing.keywordGaps,
+    weaknesses: [...listing.weaknesses.slice(0, textCount), ...shotFindings.map((f) => f.weakness)],
+    strengths: listing.strengths,
+    recommendations: [...listing.recommendations.slice(0, textCount), ...shotFindings.map((f) => f.fix)],
+    failedChecks,
     resolved,
     weakScreenshots,
     mode: status.mode,

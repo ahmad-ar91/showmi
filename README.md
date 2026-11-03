@@ -61,7 +61,7 @@ AI_SEGMENT_PROVIDER=google
 | `deepseek` | deepseek-flash (text + vision) or deepseek-v4-pro (text only) | — | — | `DEEPSEEK_API_KEY` |
 | `mock` | deterministic copy bank | SVG motifs | preset regions | none |
 
-A vendor without a key (or one that cannot serve a capability) silently resolves to `mock`. `AI_CONCURRENCY` (default 4) caps how many markets are generated in parallel. To add another vendor, implement the interfaces in `src/lib/ai/providers/<name>.ts` and register it in `src/lib/ai/registry.ts`.
+A vendor without a key (or one that cannot serve a capability) silently resolves to `mock`. `AI_CONCURRENCY` (default 4) caps how many markets are generated in parallel. `AUDIT_SCREENSHOTS` (default 4) sets how many screenshots an audit reads. The audit asks the model only yes/no rule checks (listed in `src/lib/creative-rules.ts`), asks each one `AUDIT_VOTES` times in parallel (default 3), keeps the majority answer and computes every score from the result, so an unchanged listing keeps its score. To add another vendor, implement the interfaces in `src/lib/ai/providers/<name>.ts` and register it in `src/lib/ai/registry.ts`.
 
 ## Project layout
 

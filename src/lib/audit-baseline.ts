@@ -9,6 +9,8 @@ export interface AuditBaseline {
   healthScore: number;
   metrics: AsoMetrics;
   weaknesses: string[];
+  /** Failed check ids; the next audit reports the ones that pass now. */
+  failedChecks?: string[];
   visualScores: number[];
   auditedAt: string;
 }
@@ -44,6 +46,7 @@ export function saveBaseline(a: AsoAnalysis): void {
     healthScore: a.healthScore,
     metrics: a.metrics,
     weaknesses: a.weaknesses,
+    failedChecks: a.failedChecks,
     visualScores: a.visual.map((v) => v.score),
     auditedAt: a.generatedAt,
   };

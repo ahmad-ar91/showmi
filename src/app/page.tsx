@@ -129,7 +129,7 @@ export default function WorkspacePage() {
     try {
       // The audit the owner last fixed from, so this run can report what changed since then.
       const prev = loadBaseline(input.demo ? null : appIdFromInput(input.appId), !!input.demo);
-      const res = await postJson<AsoAnalysis>("/api/analyze-aso", { ...input, previousWeaknesses: prev?.weaknesses });
+      const res = await postJson<AsoAnalysis>("/api/analyze-aso", { ...input, previousFailedChecks: prev?.failedChecks });
       setAnalysis(res);
       setBaseline(prev && prev.auditedAt < res.generatedAt ? prev : null);
     } catch (err) {

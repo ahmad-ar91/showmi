@@ -219,7 +219,7 @@ export function AsoAnalytics({ analysis, loading, error, onAnalyze, onFixAndLoca
           <Card>
             <CardHeader
               title="What to fix first"
-              description="Muse Spark's read of the listing, most important first."
+              description="Muse Spark checks the listing against fixed rules; every score is computed from those checks."
               actions={
                 <Button variant="primary" size="sm" onClick={onFixAndLocalize}>
                   Fix and localize
@@ -320,7 +320,7 @@ function SinceLastFix({ analysis, baseline, onClear }: { analysis: AsoAnalysis; 
     <Card>
       <CardHeader
         title="Since your last fix"
-        description={`Compared with the audit from ${date} that you fixed from. Both use the same rubric; a change of a few points can be noise.`}
+        description={`Compared with the audit from ${date} that you fixed from. Both are scored from the same yes/no rule checks; a borderline check can still move the total by a few points.`}
         actions={
           <TextButton className="text-xs" onClick={onClear}>
             Stop comparing
@@ -353,7 +353,7 @@ function SinceLastFix({ analysis, baseline, onClear }: { analysis: AsoAnalysis; 
           {analysis.resolved.length ? (
             <MarkedList tone="ok" items={analysis.resolved} />
           ) : (
-            <p className="text-[13px] leading-relaxed text-muted">None of the earlier weaknesses is resolved yet.</p>
+            <p className="text-[13px] leading-relaxed text-muted">None of the earlier failed checks passes yet.</p>
           )}
         </div>
       </CardBody>

@@ -43,7 +43,7 @@ export class MetaTextProvider implements TextProvider {
     return cfg().textModel;
   }
 
-  async chatJson<T>({ system, user, images = [], temperature = 0.7 }: ChatJsonParams): Promise<T> {
+  async chatJson<T>({ system, user, images = [], temperature = 0.7, reasoning }: ChatJsonParams): Promise<T> {
     const c = cfg();
     const content: unknown[] = [
       { type: "text", text: user },
@@ -62,6 +62,7 @@ export class MetaTextProvider implements TextProvider {
         ],
         response_format: { type: "json_object" },
         temperature,
+        ...(reasoning ? { reasoning_effort: reasoning } : {}),
       },
       headers(),
       "meta",

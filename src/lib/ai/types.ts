@@ -19,6 +19,8 @@ export interface ChatJsonParams {
   /** Optional image data URLs for vision-capable models. */
   images?: string[];
   temperature?: number;
+  /** Reasoning budget for models that think before answering; providers without it ignore it. */
+  reasoning?: "minimal" | "low" | "medium" | "high";
 }
 
 export interface TextProvider {

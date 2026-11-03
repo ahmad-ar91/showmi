@@ -20,16 +20,76 @@ export const SCREENSHOT_RULES = [
   `Detected UI regions cover ${Math.round(IDEAL_COVERAGE.min * 100)}–${Math.round(IDEAL_COVERAGE.max * 100)}% of the frame, in at most ${BUSY_REGIONS} regions.`,
 ] as const;
 
-/** Rubric anchors so scores mean the same thing on every run. */
-export const SCORE_RUBRIC = `Score every metric and screenshot against these anchors:
-90-100: meets every rule, nothing worth changing.
-75-89: meets the rules with one minor issue.
-55-74: breaks one rule clearly.
-35-54: breaks two or more rules.
-0-34: missing or unusable.`;
-
 export function rulesBlock(): string {
   return SCREENSHOT_RULES.map((r, i) => `${i + 1}. ${r}`).join("\n");
+}
+
+/* ------------------------------ Yes/no checks ------------------------------ */
+/*
+ * The audit asks the model only these yes/no questions and computes every score from the
+ * answers. Free 0-100 scores drift between runs; a fixed checklist on an unchanged listing
+ * gives the same answers, and a fixed issue shows up as a check that now passes.
+ */
+
+/** Asked once per screenshot. */
+export const SHOT_CHECKS = {
+  namesFeature: "The headline names the core feature or outcome this screen shows",
+  proofPoint: "A subheadline or caption gives one concrete proof point",
+  readable: "The headline is short, high contrast and readable at thumbnail size",
+  calloutsClean: "Floating callouts, if any, are at most two and leave the headline and main content visible",
+} as const;
+
+/** Asked once for the listing text. */
+export const LISTING_CHECKS = {
+  titleKeyword: "The title contains the app's primary category search term",
+  shortHighIntent: "The short description contains at least two high-intent search terms",
+  noStuffing: "The copy has no keyword stuffing or repeated filler",
+  fullCoversFeatures: "The full description covers the main features in the words people search for",
+  nativeTone: "The copy reads natively for its market, with no awkward or machine-like phrasing",
+  marketFit: "Examples, units and references fit the listing's market",
+  clearBenefit: "The short description leads with a clear user benefit",
+  explicitCta: "The short description or opening line has an explicit call to action",
+  closingCta: "The full description ends with a call to action",
+  socialProof: "The copy offers trust or social proof (users, ratings, awards, privacy)",
+} as const;
+
+export type ShotCheck = keyof typeof SHOT_CHECKS;
+export type ListingCheck = keyof typeof LISTING_CHECKS;
+export type Checks<K extends string> = Partial<Record<K, boolean>>;
+
+/** Stable ids for failed checks ("listing:explicitCta", "shot1:namesFeature"), kept between audits. */
+export function checkLabel(id: string): string {
+  const [scope, key] = id.split(":");
+  if (scope === "listing") return LISTING_CHECKS[key as ListingCheck] ?? key;
+  const n = Number(scope.replace("shot", ""));
+  return `Screenshot ${n + 1}: ${SHOT_CHECKS[key as ShotCheck] ?? key}`;
+}
+
+const share = <K extends string>(checks: Checks<K>, keys: readonly K[]) =>
+  keys.filter((k) => checks[k] === true).length / keys.length;
+
+/** 80 points from the checks, 20 from region coverage and count (measured by segmentation). */
+export function shotScore(checks: Checks<ShotCheck>, regions: number, coverage: number): number {
+  const outside = coverage < IDEAL_COVERAGE.min ? IDEAL_COVERAGE.min - coverage : Math.max(0, coverage - IDEAL_COVERAGE.max);
+  const layout = Math.max(0, 20 - outside * 100 - Math.max(0, regions - BUSY_REGIONS) * 5);
+  return Math.round(80 * share(checks, Object.keys(SHOT_CHECKS) as ShotCheck[]) + layout);
+}
+
+/** Text metrics from the listing checks; strong keyword gaps cost up to 20 keyword points. */
+export function listingMetrics(checks: Checks<ListingCheck>, strongGaps: number) {
+  return {
+    keywordOptimization: Math.round(
+      80 * share(checks, ["titleKeyword", "shortHighIntent", "noStuffing", "fullCoversFeatures"]) + Math.max(0, 20 - strongGaps * 4),
+    ),
+    culturalFit: Math.round(100 * share(checks, ["nativeTone", "marketFit", "noStuffing"])),
+    ctaStrength: Math.round(100 * share(checks, ["clearBenefit", "explicitCta", "closingCta", "socialProof"])),
+  };
+}
+
+export function checklistBlock(checks: Record<string, string>): string {
+  return Object.entries(checks)
+    .map(([k, v]) => `"${k}": ${v}`)
+    .join("\n");
 }
 
 /** Union of the region boxes, sampled on a grid so overlapping boxes are not counted twice. */

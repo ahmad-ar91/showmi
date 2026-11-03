@@ -9,6 +9,8 @@ import { LocalizationStudio, type StudioHandoff } from "@/components/Localizatio
 import { StoreSimulator } from "@/components/StoreSimulator";
 import { MAX_BADGES_PER_SHOT, type ShotSegmentation } from "@/components/workspace/SegmentPicker";
 import type { AsoAnalysis } from "@/lib/aso-analytics";
+import type { ExportItem } from "@/lib/export";
+import { publishToPlay, type PublishMode, type PublishProgress } from "@/lib/play-publish";
 import { appIdFromInput, clearBaseline, loadBaseline, saveBaseline, type AuditBaseline } from "@/lib/audit-baseline";
 import { loadImage, type UploadedScreenshot } from "@/lib/image";
 import type {
@@ -16,6 +18,7 @@ import type {
   GenerateAsoResponse,
   LayoutStyle,
   LocaleCode,
+  LocaleResult,
   PlayStoreMetadata,
   Segment,
   SegmentRequest,
@@ -109,6 +112,11 @@ export default function WorkspacePage() {
   const [exporting, setExporting] = useState(false);
   const registerExport = useCallback((fn: (() => Promise<void>) | null) => {
     exportFn.current = fn;
+  }, []);
+  type RenderAll = (consume: (results: LocaleResult[], items: ExportItem[]) => Promise<void>) => Promise<void>;
+  const renderAllFn = useRef<RenderAll | null>(null);
+  const registerPublish = useCallback((fn: RenderAll | null) => {
+    renderAllFn.current = fn;
   }, []);
 
   // Ask the API which providers back each capability (for the status badges).
@@ -369,6 +377,12 @@ export default function WorkspacePage() {
     }
   };
 
+  /** Renders the artwork off screen, then walks a Google Play edit through /api/play. */
+  const handlePublish = async (packageName: string, mode: PublishMode, onProgress: (p: PublishProgress) => void) => {
+    if (!renderAllFn.current) throw new Error("Open Localize once so the artwork can render.");
+    await renderAllFn.current((results, items) => publishToPlay({ packageName, results, items, mode, onProgress }));
+  };
+
   /* --------------------------------- UI --------------------------------- */
 
   const stepDone: Record<Tab, boolean> = { analytics: !!analysis, studio: !!result, simulator: false };
@@ -555,6 +569,7 @@ export default function WorkspacePage() {
             featureError={featureError}
             onGenerateFeatureArt={handleGenerateFeatureArt}
             onRegisterExport={registerExport}
+            onRegisterPublish={registerPublish}
           />
         </div>
         <div className={cn("lg:h-full lg:min-h-0", tab === "simulator" ? "tab-enter" : "hidden")}>
@@ -568,6 +583,7 @@ export default function WorkspacePage() {
             textPosition={textPosition}
             exporting={exporting}
             onExport={handleExportFromSimulator}
+            onPublish={handlePublish}
           />
         </div>
       </div>

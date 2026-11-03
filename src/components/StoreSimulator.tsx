@@ -1,12 +1,13 @@
 "use client";
 
-import { useState } from "react";
-import { Button, Card, CardHeader, EmptyState, Select, Tag } from "@/components/ui";
+import { useEffect, useState } from "react";
+import { Button, Card, CardBody, CardHeader, EmptyState, Field, Notice, Select, Tag } from "@/components/ui";
 import { PosterCanvas } from "@/components/workspace/PosterCanvas";
 import type { AsoAnalysis } from "@/lib/aso-analytics";
 import { POSTER_HEIGHT, POSTER_WIDTH } from "@/lib/export";
 import type { UploadedScreenshot } from "@/lib/image";
 import { LOCALE_MAP } from "@/lib/locales";
+import type { PlayStatus, PublishMode, PublishProgress } from "@/lib/play-publish";
 import type { GenerateAsoResponse, LayoutStyle, LocaleCode, TextPosition } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -20,6 +21,7 @@ interface Props {
   textPosition: TextPosition;
   exporting: boolean;
   onExport: () => void;
+  onPublish: (packageName: string, mode: PublishMode, onProgress: (p: PublishProgress) => void) => Promise<void>;
 }
 
 interface Listing {
@@ -39,7 +41,18 @@ const VARIANT_LABEL = { before: "Now", after: "After", competitor: "Competitor" 
  * Step 3: a Google Play search-result mock-up comparing the listing before and after,
  * next to the competitor when there is one, plus the Fastlane export.
  */
-export function StoreSimulator({ analysis, result, screenshots, appName, description, layout, textPosition, exporting, onExport }: Props) {
+export function StoreSimulator({
+  analysis,
+  result,
+  screenshots,
+  appName,
+  description,
+  layout,
+  textPosition,
+  exporting,
+  onExport,
+  onPublish,
+}: Props) {
   const localeOptions = result?.locales.map((l) => l.locale) ?? [];
   const [localeChoice, setLocaleChoice] = useState<LocaleCode | null>(null);
   const locale = localeChoice && localeOptions.includes(localeChoice) ? localeChoice : (localeOptions[0] ?? null);
@@ -189,6 +202,8 @@ export function StoreSimulator({ analysis, result, screenshots, appName, descrip
           </div>
         )}
 
+        {result && <PublishPanel result={result} auditedApp={analysis?.app.source === "sample" ? null : (analysis?.app.appId ?? null)} onPublish={onPublish} />}
+
         {result && (
           <p className="mx-auto mt-4 max-w-2xl text-center text-xs leading-relaxed text-muted">
             The ZIP follows the Fastlane layout: title, short and full description plus phone screenshots for{" "}
@@ -197,6 +212,128 @@ export function StoreSimulator({ analysis, result, screenshots, appName, descrip
         )}
       </div>
     </div>
+  );
+}
+
+/**
+ * Sends the generated listing straight to Google Play. A check run uploads everything into
+ * a Google Play edit, validates it and throws it away; publishing is only offered after a
+ * check passed, and commits the same content.
+ */
+function PublishPanel({
+  result,
+  auditedApp,
+  onPublish,
+}: {
+  result: GenerateAsoResponse;
+  auditedApp: string | null;
+  onPublish: Props["onPublish"];
+}) {
+  const [status, setStatus] = useState<PlayStatus | null>(null);
+  const [choice, setChoice] = useState<string | null>(null);
+  const [busy, setBusy] = useState<PublishMode | null>(null);
+  const [progress, setProgress] = useState<PublishProgress | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  // The listing that passed the check; publishing anything else needs a new check.
+  const [checked, setChecked] = useState<{ pkg: string; result: GenerateAsoResponse } | null>(null);
+  const [published, setPublished] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetch("/api/play")
+      .then((r) => r.json())
+      .then((d: PlayStatus) => setStatus(d))
+      .catch(() => setStatus({ configured: false, serviceAccount: null, packages: [] }));
+  }, []);
+
+  const packages = status?.packages ?? [];
+  const pkg = choice && packages.includes(choice) ? choice : auditedApp && packages.includes(auditedApp) ? auditedApp : (packages[0] ?? "");
+  const languages = result.locales.map((r) => LOCALE_MAP[r.locale].playStoreCode);
+  const ready = checked?.pkg === pkg && checked.result === result;
+
+  const run = async (mode: PublishMode) => {
+    setBusy(mode);
+    setError(null);
+    setPublished(null);
+    try {
+      await onPublish(pkg, mode, setProgress);
+      if (mode === "check") setChecked({ pkg, result });
+      else {
+        setChecked(null);
+        setPublished(pkg);
+      }
+    } catch (err) {
+      setError((err as Error).message);
+      if (mode === "check") setChecked(null);
+    } finally {
+      setBusy(null);
+      setProgress(null);
+    }
+  };
+
+  return (
+    <Card className="mx-auto mt-4 max-w-5xl">
+      <CardHeader
+        title="Publish to Google Play"
+        description="Send the listing text, phone screenshots and feature graphic straight to Google Play Console, without fastlane."
+      />
+      <CardBody className="space-y-4">
+        {!status ? (
+          <p className="text-[13px] text-muted">Checking whether publishing is set up…</p>
+        ) : !status.configured ? (
+          <Notice tone="warn" title="Publishing is not set up on this server">
+            {status.error ? `${status.error} ` : ""}Add a Google Cloud service account that has store listing access in Play Console, then set
+            GOOGLE_PLAY_SERVICE_ACCOUNT_FILE and GOOGLE_PLAY_PACKAGES. The README section &ldquo;Publish to Google Play&rdquo; has the steps.
+          </Notice>
+        ) : (
+          <>
+            <div className="grid items-end gap-4 md:grid-cols-[minmax(0,1fr)_auto]">
+              <Field label="App" htmlFor="publish-app" hint={`Signed in as ${status.serviceAccount}. Only apps in GOOGLE_PLAY_PACKAGES are listed.`}>
+                <Select id="publish-app" value={pkg} onChange={(e) => setChoice(e.target.value)} disabled={!!busy}>
+                  {packages.map((p) => (
+                    <option key={p} value={p}>
+                      {p}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+              <div className="flex flex-wrap gap-2">
+                <Button onClick={() => run("check")} loading={busy === "check"} disabled={!!busy || !pkg}>
+                  Check with Google Play
+                </Button>
+                <Button variant="primary" onClick={() => run("publish")} loading={busy === "publish"} disabled={!!busy || !ready}>
+                  Publish
+                </Button>
+              </div>
+            </div>
+            <p className="text-[13px] leading-relaxed text-muted">
+              Replaces the title, short and full description, phone screenshots and feature graphic for{" "}
+              <span className="font-mono text-xs text-ink">{languages.join(", ")}</span>. Other languages stay as they are.
+              Publish becomes available after a check passes; Google then reviews the change before it goes live.
+            </p>
+            {progress && (
+              <p className="text-[13px] text-ink" role="status">
+                Step {Math.min(progress.done + 1, progress.total)} of {progress.total}: {progress.label}
+              </p>
+            )}
+            {ready && !busy && (
+              <Notice title="Google Play accepted this listing">
+                The check uploaded everything into a draft, validated it and discarded it, so nothing changed yet. Press Publish to send it for review.
+              </Notice>
+            )}
+            {published && (
+              <Notice title="Sent to Google Play">
+                {published} now has the new listing in Play Console. It goes live after Google&apos;s review.
+              </Notice>
+            )}
+            {error && (
+              <Notice tone="bad" title="Google Play did not accept this">
+                {error} Nothing was changed on Google Play.
+              </Notice>
+            )}
+          </>
+        )}
+      </CardBody>
+    </Card>
   );
 }
 

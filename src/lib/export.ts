@@ -1,4 +1,4 @@
-import { toPng } from "html-to-image";
+import { toJpeg, toPng } from "html-to-image";
 import JSZip from "jszip";
 import { BRAND } from "./brand";
 import { LOCALE_MAP } from "./locales";
@@ -38,6 +38,24 @@ async function render(item: ExportItem): Promise<string> {
     // The clone keeps exact dimensions even if the live node sits inside a scaled preview.
     style: { transform: "none", margin: "0" },
   });
+}
+
+/**
+ * Renders one item as a JPEG blob for direct upload to Google Play. JPEG keeps a 1080x1920
+ * poster near 0.5 MB, well inside serverless body limits; Play accepts JPEG and 24-bit PNG.
+ */
+export async function renderJpegBlob(item: ExportItem): Promise<Blob> {
+  await Promise.all(
+    Array.from(item.node.querySelectorAll("img")).map((img) => (img.complete ? Promise.resolve() : img.decode().catch(() => undefined))),
+  );
+  const url = await toJpeg(item.node, {
+    ...size(item),
+    quality: 0.92,
+    backgroundColor: "#111111",
+    cacheBust: false,
+    style: { transform: "none", margin: "0" },
+  });
+  return (await fetch(url)).blob();
 }
 
 function dataUrlToBase64(dataUrl: string): string {

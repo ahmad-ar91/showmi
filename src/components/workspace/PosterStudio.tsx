@@ -56,6 +56,8 @@ interface Props {
   onGenerateFeatureArt: () => void;
   /** Lets other tabs (Store preview) trigger the same Fastlane export. */
   onRegisterExport?: (fn: (() => Promise<void>) | null) => void;
+  /** Lets the Store preview tab publish the rendered artwork straight to Google Play. */
+  onRegisterPublish?: (fn: ((consume: (results: LocaleResult[], items: ExportItem[]) => Promise<void>) => Promise<void>) | null) => void;
 }
 
 function featureProps(r: LocaleResult, appName: string, shots: UploadedScreenshot[], result: GenerateAsoResponse, art: Record<string, string>) {
@@ -91,6 +93,7 @@ export function PosterStudio({
   featureError,
   onGenerateFeatureArt,
   onRegisterExport,
+  onRegisterPublish,
 }: Props) {
   const [view, setView] = useState<View>("posters");
   const [size, setSize] = useState<Size>("m");
@@ -129,41 +132,61 @@ export function PosterStudio({
 
   /* ------------------------------ export ------------------------------ */
 
+  /** Mounts every poster and feature graphic at native size off screen and hands them to `consume`. */
+  const withRendered = useCallback(
+    async (consume: (results: LocaleResult[], items: ExportItem[]) => Promise<void>) => {
+      if (!result) throw new Error("Generate a listing first.");
+      setFarm(true);
+      // Two frames let React mount the nodes; the timer covers background tabs, where frames pause.
+      await new Promise<void>((r) => {
+        requestAnimationFrame(() => requestAnimationFrame(() => r()));
+        setTimeout(r, 120);
+      });
+      try {
+        const items: ExportItem[] = [];
+        for (const r of result.locales) {
+          screenshots.forEach((_, i) => {
+            const node = farmNodes.current.get(`p-${r.locale}-${i}`);
+            if (node) items.push({ kind: "poster", locale: r.locale, index: i, node });
+          });
+          const f = farmNodes.current.get(`f-${r.locale}`);
+          if (f) items.push({ kind: "feature", locale: r.locale, node: f });
+        }
+        if (!items.length) throw new Error("Nothing was ready to render.");
+        await consume(result.locales, items);
+      } finally {
+        setFarm(false);
+      }
+    },
+    [result, screenshots],
+  );
+
   const handleExportAll = useCallback(async () => {
-    if (!result) return;
     setExportError(null);
     setExporting({ done: 0, total: 0 });
-    // Mount every poster and feature graphic at native size off screen, then render them.
-    setFarm(true);
-    await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
     try {
-      const items: ExportItem[] = [];
-      for (const r of result.locales) {
-        screenshots.forEach((_, i) => {
-          const node = farmNodes.current.get(`p-${r.locale}-${i}`);
-          if (node) items.push({ kind: "poster", locale: r.locale, index: i, node });
-        });
-        const f = farmNodes.current.get(`f-${r.locale}`);
-        if (f) items.push({ kind: "feature", locale: r.locale, node: f });
-      }
-      if (!items.length) throw new Error("Nothing was ready to render.");
-      await exportFastlaneZip(result.locales, items, (done, total) => setExporting({ done, total }));
+      await withRendered((results, items) => exportFastlaneZip(results, items, (done, total) => setExporting({ done, total })));
     } catch (err) {
       setExportError((err as Error).message);
     } finally {
-      setFarm(false);
       setExporting(null);
     }
-  }, [result, screenshots]);
+  }, [withRendered]);
 
   const exportRef = useRef(handleExportAll);
+  const renderRef = useRef(withRendered);
   useEffect(() => {
     exportRef.current = handleExportAll;
+    renderRef.current = withRendered;
   });
   useEffect(() => {
     onRegisterExport?.(() => exportRef.current());
     return () => onRegisterExport?.(null);
   }, [onRegisterExport]);
+  useEffect(() => {
+    onRegisterPublish?.((consume) => renderRef.current(consume));
+    return () => onRegisterPublish?.(null);
+  }, [onRegisterPublish]);
 
   const savePng = async (key: string, item: ExportItem) => {
     setSaving(key);

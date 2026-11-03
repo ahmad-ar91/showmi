@@ -45,6 +45,7 @@ export interface LocalizationStudioProps {
   featureError: string | null;
   onGenerateFeatureArt: () => void;
   onRegisterExport: (fn: (() => Promise<void>) | null) => void;
+  onRegisterPublish: React.ComponentProps<typeof PosterStudio>["onRegisterPublish"];
 }
 
 /**
@@ -117,6 +118,7 @@ export function LocalizationStudio(p: LocalizationStudioProps) {
             featureError={p.featureError}
             onGenerateFeatureArt={p.onGenerateFeatureArt}
             onRegisterExport={p.onRegisterExport}
+            onRegisterPublish={p.onRegisterPublish}
           />
         </div>
       </div>

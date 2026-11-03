@@ -8,7 +8,7 @@ Audit a Google Play listing (optionally against a competitor), fix its weaknesse
 | --- | --- |
 | **1 · ASO Intelligence & Audit** | Pulls live listings with `google-play-scraper`, scores 5 metrics on a `recharts` radar (ASO Health 0–100), tears down screenshots with SAM 3.1 (detections, clutter score, focal-point heatmap, Muse critique) and lists missing keywords: the gap against a competitor if you add one, otherwise high-intent terms for your category. **Fix and localize** hands everything to Tab 2. |
 | **2 · Localization Studio** | Pick any number of 65 Google Play markets (searchable, grouped by region), interactive SAM segment picker → floating 3D badges on 9:16 posters, Muse Spark copy with missing keywords injected, Muse Image cultural backgrounds, a 1024×500 feature graphic per market with optional wide Muse Image art, Play Console limits enforced. A full-width review area shows one market at a time (posters in three sizes, full-screen review, feature graphic, listing text). |
-| **3 · Store Simulator & Export** | Google Play search mock-up: your listing before vs after, next to the competitor, plus one-click Fastlane ZIP. |
+| **3 · Store Simulator & Export** | Google Play search mock-up: your listing before vs after, next to the competitor, plus one-click Fastlane ZIP or direct publishing to Google Play Console. |
 
 Press **Try the demo with sample apps** on Tab 1 for a one-click judge demo. It audits Ritmova against Paceto, two fictional apps with original copy and generated screenshots, so it works offline and uses no third-party brands.
 
@@ -74,10 +74,13 @@ src/
     api/segment/route.ts         # POST: candidate UI regions for the Segment Picker
     api/analyze-aso/route.ts     # POST: scrape Play listings + SAM/Muse audit
     api/feature-graphic/route.ts # POST: wide Muse Image art for feature graphics
+    api/play/route.ts            # GET: publishing status; POST: one Google Play edit step (open, listing, upload, validate, commit)
   lib/
     meta-ai.ts                   # Orchestrator (segmentation, copy, backgrounds) over the provider interfaces
     aso-analytics.ts             # ASO audit: metrics, visual teardown, keyword gap, compliance
     play-store.ts                # google-play-scraper wrapper
+    google-play.ts               # Google Play Developer API client (service account, edits)
+    play-publish.ts              # Browser side of Publish to Google Play
     demo/sample-apps.ts          # Fictional demo apps (Ritmova, Paceto) with original copy and screenshots
     ai/types.ts                  # TextProvider / ImageProvider / SegmentProvider interfaces
     ai/registry.ts               # Env-driven vendor selection with mock fallback
@@ -159,6 +162,22 @@ Exports (posters, feature graphics and the Fastlane ZIP) are rendered in the bro
 ## Layout
 
 The left sidebar collapses to a narrow rail (the choice is remembered per browser). Below 1024 px wide the sidebar becomes a top bar with the three steps as tabs, and every screen stacks into one scrolling column for phones.
+
+## Publish to Google Play
+
+Step 3 can send the listing straight to Google Play Console through the Google Play Developer API (the same edit workflow `fastlane supply` uses), so no ZIP or fastlane is needed.
+
+1. In Google Cloud Console, create or pick a project and enable the **Google Play Android Developer API**.
+2. Create a **service account** in that project and download a JSON key for it.
+3. In Play Console, open **Users and permissions**, invite the service account's email, and give it permission to edit the store listing of your app.
+4. In `.env.local`, set `GOOGLE_PLAY_SERVICE_ACCOUNT_FILE` to the key's path (on a host, paste the JSON into `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON`) and list the apps ShowMi may edit in `GOOGLE_PLAY_PACKAGES`, for example `com.yourcompany.app`. Never commit the key.
+
+Then open **Preview and export**:
+
+- **Check with Google Play** uploads the text, phone screenshots and feature graphic for every generated language into a Play edit, asks Google to validate it, and discards it. Nothing changes on Google Play.
+- **Publish** becomes available after a check passes and commits the same content. Store listing changes go through Google's review before they go live.
+
+It replaces the text and images only for the generated languages; other languages are left alone. The app must already exist in Play Console. Each step is a separate small request (images are uploaded as JPEG), so publishing stays within serverless limits. Anyone who can open a deployment can press Publish for the listed packages, so only configure publishing on a private deployment.
 
 ## Export format
 

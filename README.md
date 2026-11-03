@@ -163,21 +163,13 @@ Exports (posters, feature graphics and the Fastlane ZIP) are rendered in the bro
 
 The left sidebar collapses to a narrow rail (the choice is remembered per browser). Below 1024 px wide the sidebar becomes a top bar with the three steps as tabs, and every screen stacks into one scrolling column for phones.
 
-## Publish to Google Play
+## Publish to Google Play (optional)
 
-Step 3 can send the listing straight to Google Play Console through the Google Play Developer API (the same edit workflow `fastlane supply` uses), so no ZIP or fastlane is needed.
+Step 3 can send the listing straight to Google Play Console through the Google Play Developer API, so no ZIP or fastlane is needed. **Check with Google Play** validates everything in a draft and discards it; **Publish** commits it for Google's review.
 
-1. In Google Cloud Console, create or pick a project and enable the **Google Play Android Developer API**.
-2. Create a **service account** in that project and download a JSON key for it.
-3. In Play Console, open **Users and permissions**, invite the service account's email, and give it permission to edit the store listing of your app.
-4. In `.env.local`, set `GOOGLE_PLAY_SERVICE_ACCOUNT_FILE` to the key's path (on a host, paste the JSON into `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON`) and list the apps ShowMi may edit in `GOOGLE_PLAY_PACKAGES`, for example `com.yourcompany.app`. Never commit the key.
+It needs a Google Cloud service account with store listing access in Play Console. The full setup, troubleshooting and security notes are in [docs/google-play-publishing.md](docs/google-play-publishing.md).
 
-Then open **Preview and export**:
-
-- **Check with Google Play** uploads the text, phone screenshots and feature graphic for every generated language into a Play edit, asks Google to validate it, and discards it. Nothing changes on Google Play.
-- **Publish** becomes available after a check passes and commits the same content. Store listing changes go through Google's review before they go live.
-
-It replaces the text and images only for the generated languages; other languages are left alone. The app must already exist in Play Console. Each step is a separate small request (images are uploaded as JPEG), so publishing stays within serverless limits. Anyone who can open a deployment can press Publish for the listed packages, so only configure publishing on a private deployment.
+Without that setup the app runs exactly the same: the Publish panel only says that publishing is not set up, and the Fastlane ZIP remains the way to ship.
 
 ## Export format
 

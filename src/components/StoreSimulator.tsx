@@ -280,9 +280,9 @@ function PublishPanel({
         {!status ? (
           <p className="text-[13px] text-muted">Checking whether publishing is set up…</p>
         ) : !status.configured ? (
-          <Notice tone="warn" title="Publishing is not set up on this server">
-            {status.error ? `${status.error} ` : ""}Add a Google Cloud service account that has store listing access in Play Console, then set
-            GOOGLE_PLAY_SERVICE_ACCOUNT_FILE and GOOGLE_PLAY_PACKAGES. The README section &ldquo;Publish to Google Play&rdquo; has the steps.
+          <Notice tone={status.error ? "warn" : "info"} title="Optional, not set up on this server">
+            {status.error ? `${status.error} ` : ""}Use the Fastlane ZIP above, or connect a Google Play service account to publish from here. The steps are
+            in <span className="font-mono text-xs">docs/google-play-publishing.md</span> in the repository.
           </Notice>
         ) : (
           <>

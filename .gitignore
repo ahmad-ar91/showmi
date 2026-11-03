@@ -63,3 +63,7 @@ GEMINI.md
 *.pem
 *.key
 secrets/
+# Google service account keys (keep them outside the project; these catch accidents)
+*service-account*.json
+*service_account*.json
+google-play-key*.json

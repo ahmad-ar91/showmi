@@ -39,7 +39,7 @@ export async function POST(request: Request) {
   try {
     const status = playStatus();
     if (!status.configured) {
-      throw new PlayError(status.error ?? "Google Play publishing is not set up on this server. See Publish to Google Play in the README.", 503);
+      throw new PlayError(status.error ?? "Google Play publishing is not set up on this server. See docs/google-play-publishing.md.", 503);
     }
 
     const type = request.headers.get("content-type") ?? "";
@@ -123,7 +123,8 @@ export async function POST(request: Request) {
     }
   } catch (err) {
     const status = err instanceof PlayError ? err.status : 500;
-    if (status >= 500) console.error("[play]", err);
+    // 503 is "not set up", an expected state rather than a fault.
+    if (status >= 500 && status !== 503) console.error("[play]", err);
     return NextResponse.json({ error: (err as Error).message || "Google Play request failed." }, { status });
   }
 }

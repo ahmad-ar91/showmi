@@ -79,7 +79,7 @@ const b64url = (data: string | Buffer) => Buffer.from(data).toString("base64url"
 
 async function accessToken(): Promise<string> {
   const sa = serviceAccount();
-  if (!sa) throw new PlayError("Google Play publishing is not set up on this server.", 503);
+  if (!sa) throw new PlayError("Google Play publishing is not set up on this server. See docs/google-play-publishing.md.", 503);
   if (cached && cached.email === sa.client_email && cached.expires > Date.now() + 60_000) return cached.token;
 
   const tokenUri = sa.token_uri || "https://oauth2.googleapis.com/token";
